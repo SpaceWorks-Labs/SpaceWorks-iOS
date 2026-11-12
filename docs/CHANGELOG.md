@@ -1,5 +1,46 @@
 # Phase notes
 
+## E — Backend 0.12.0 contract, auth flow and staff step-up (2026-11-12)
+
+The owner asked for the app to be brought up to the backend `dev` contract (release 0.12.0,
+`SpaceWorks-Labs/SpaceWorks`) with the complete native auth flow and the staff step-up, built by
+Claude only. The backend was read and never modified; gaps are listed for the owner, not worked around.
+
+**E1 contract.** `api/openapi.json` is the backend's `frontend/openapi-schema.json` byte-for-byte
+(SHA-256 `8045528d…`, 2,211 paths, `api/provenance.json`). The generator projection now keeps only the
+selected operations, and opens every string enum reachable from a response (PRD §7 "treat an unknown
+enum value as other"), pinned by Python tests. Compile breaks from renamed components were fixed
+(`Phase740Enum`, `EvidenceType5ffEnum`, `PublicRequestSubmitSchema`, `SocialLoginResult`, typed
+attestation branches: App Attest now travels in its own `app_attest` branch). Runtime fixes: paged
+device grants, booking rejection with a required reason, nullable `membership_id` for guest-pass
+holders, optional check-in fields, request submit without the removed `Idempotency-Key`. Parity
+operations added: booking reschedule, request status by token, member-card printed name. Fixtures
+were regenerated against 0.12.0, and `Fixtures/Contract` holds payloads carrying the new values
+(`judge`, `contact`, `loan_rental`, `bill`, `presence`, `machine`, `Lent at events only`).
+
+Parity checklist (E1): booking details — Reschedule booking (times, confirmation "Change this
+booking?"); request receipt — Check status; membership card — Change printed name; staff booking
+rejection — Reason required.
+Server date-times carry microseconds (DRF ISO 8601) and sometimes a `+00:00` offset; the generated
+client now decodes both (`ServerDateTranscoder`). Credential snapshots are bound to the coordinator
+that issued them, so a member snapshot can never authorize a staff call. `DebugFixtureDecodingTests`
+decodes every DEBUG/demo fixture through the generated 0.12.0 types.
+
+**E2 auth flow.** `app_version` on every grant-issuing call and refresh; 426 `native_app_update_required`
+shows Update required with the enforced minimum and keeps the stored session; `device_trust` kept per
+server in Keychain and sent as `X-Device-Trust` on sign-in routes only; unusual sign-in "Check your email"
+step with `factor: "email_code"` and "Send a new code"; social/OIDC/Apple follow the MFA challenge branch;
+blocking "Choose your username" step for `handle_required`; `session_revoked` copy; paged device grants.
+
+**E3 staff step-up.** A second, staff-only device grant (`POST /auth/device/staff-grant` + MFA) with its
+own Keychain item, refresh and `X-Makerspace-Id`; the member grant is kept. Losing the staff grant drops
+only staff tools; "Leave staff tools" signs out the staff grant only.
+
+Parity checklist (E2/E3): sign-in — Check your email (code, Send a new code); Choose your username
+(suggestion, availability); Update required; Profile — Open staff tools / Leave staff tools; staff
+step-up — makerspace short name, authenticator code. Verified: `xcodebuild test` SpaceWorksTests
+368 passed on iPhone 17 (iOS 27.0), Python generator suite and lint green.
+
 ## D — Mobile backend contract integration (2026-10-18)
 
 The owner asked for both apps to be finished against the mobile backend (`feature/mobile-backend` at

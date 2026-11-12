@@ -78,7 +78,7 @@ App Store Connect API key, APNs key, test password or service credential.
 | Camera/evidence | Archive includes the purpose string; test first request, denial, later Settings enablement, no hardware, rotation, cancellation and manual entry. Upload only explicitly confirmed evidence through documented operations. |
 | Payments | Server selects vendor and supplies runtime public checkout values; secrets remain on the server. Verify configured sandbox success, cancellation, failure, delayed webhook and later status refresh. SDK success alone never proves paid status. |
 
-The pinned contract (SHA-256 `962e6a4b…`, backend `feature/mobile-backend` at `f65ba332`) supplies
+The pinned contract (SHA-256 `8045528d…`, backend `dev` 0.12.0 at `5c7f5733`; earlier `962e6a4b…` from `feature/mobile-backend`) supplies
 the native contracts the earlier [backend dependencies issue](https://github.com/SpaceWorks-HQ/SpaceWorks-iOS/issues/3)
 requested. The app now uses them through generated operations: `PublicConfig.native` provider
 discovery and the minimum-version gate, App Attest proofs, Google/Apple/organization OIDC and phone
