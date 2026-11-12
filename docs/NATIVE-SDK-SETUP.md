@@ -21,6 +21,9 @@ access-only response is ever accepted as an app session.
 | Push | UserNotifications/APNs; routing keys arrive under the payload's `data` dictionary | APNs key in Platform push settings; `aps_environment` in `branding/brand.json` |
 | QR | VisionKit scanner and explicit manual-code fallback | Real camera permission/device; server resolves the opaque code |
 | Payments | Stripe PaymentSheet or Razorpay Checkout, selected by the intent's `vendor` | Per-makerspace provider credentials on the server; no app secrets |
+| Usage analytics | Firebase Analytics 13.1.1 (`FirebaseAnalyticsCore`, no ad-id support) and PostHog 3.94.4, started only after consent | Your `GoogleService-Info.plist` (git-ignored) and/or `telemetry.posthog_api_key`; see [TELEMETRY.md](TELEMETRY.md) |
+| Session replay | Microsoft Clarity 4.1.2, paused on sensitive screens | `telemetry.clarity_project_id`; Strict masking in the Clarity project |
+| Crash and performance reports | Sentry 9.34.0 with the scrubber, no screenshots or PII | `telemetry.sentry_dsn` (public DSN) and sample rate |
 
 Google clears its SDK session after obtaining a token; the app's Keychain device grant remains the
 sole app session. Provider tokens are passed straight to the generated operation and are never

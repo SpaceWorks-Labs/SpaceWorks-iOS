@@ -31,7 +31,13 @@ Original, unmodified Simulator captures from the successful iPhone and large-iPa
 | Staff | Native staff sessions: permission-aware request review, handover, check-in, scanning and evidence entry |
 | Platform integration | App Attest, Keychain storage, native document/share presentation, push v2 and universal-link routing, server-selected Stripe/Razorpay checkout |
 
-Native navigation, forms and system bars adapt to phone and tablet layouts. Space Works semantic colors, supplied static artwork and Gilroy typography support light/dark appearance, Dynamic Type and Bold Text. Motion respects Reduce Motion; feedback follows native platform settings.
+Native navigation, forms and system bars adapt to phone and tablet layouts.
+
+### Design
+
+The app follows the Space Works Design-Kit 0.12.0 (`design/` submodule, `SpaceWorks-Labs/SpaceWorks-Design` at `b2aa5bb`): semantic colors with the solid-black dark palette, the Aurora membership card and event ticket, Outfit interface text and Outfit ExtraBold/Light display headings with one Unbounded accent phrase (open-licensed fonts only), and Patch the mascot on the introduction and empty lists (die-cut artwork in dark mode). Everything supports light/dark appearance, Dynamic Type and Bold Text; motion uses the kit's timings and respects Reduce Motion; feedback follows native platform settings.
+
+Optional, consent-based telemetry (Firebase Analytics, PostHog, Clarity, Sentry) is off unless configured; see [Telemetry](docs/TELEMETRY.md).
 
 **Live flows use the pinned mobile backend contract** ([provenance](api/provenance.json)). Debug also includes an explicitly labelled, isolated in-memory demo for reviewing the flows; Release omits demo entry points. A few backend limitations remain unavailable by design (optional authenticator enrollment from a device, native provider linking, later pages of sessions/exports); see the [release guide](docs/RELEASE-READINESS.md). Live attestation, providers, push delivery, checkout and account deletion still require deployment configuration and real-device verification.
 
@@ -43,7 +49,7 @@ Use a Mac with **Xcode 26.2**, matching CI, and the **iOS 26 SDKs**. The app tar
 git clone --recurse-submodules https://github.com/SpaceWorks-HQ/SpaceWorks-iOS.git
 cd SpaceWorks-iOS
 git switch dev
-brew install xcodegen librsvg
+brew install xcodegen librsvg fonttools
 python3 scripts/check_build_tools.py
 python3 scripts/generate.py
 python3 -m unittest discover -s scripts/tests -v
@@ -77,7 +83,7 @@ Choose a server on launch, or lock one HTTPS origin in `branding/brand.json`. De
 | `SpaceWorksTests/`, `SpaceWorksUITests/` | Native state/API tests and UI journeys |
 | `api/` | Pinned OpenAPI contract and generation inputs |
 | `branding/`, `tokens/` | App configuration and mobile motion settings |
-| `design/` | Pinned, read-only Design submodule with supplied brand masters |
+| `design/` | Pinned, read-only Design-Kit submodule (tokens, fonts, logo masters, mascot) |
 | `scripts/` | Source/resource generation, validation and device selection |
 | `docs/` | Requirements, UX specification, phase history and release handoff |
 

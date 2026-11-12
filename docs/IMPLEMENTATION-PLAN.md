@@ -57,3 +57,17 @@ to be finished client side, built by Claude only. The contract is re-pinned to i
 | D4 | Whole-account deletion with blockers, fixes, fresh proof and typed confirmation | Conflict refetch; session cleared on success |
 | D5 | Push v2 `data` payload and contract links for push, inbox and universal links | Fresh membership before navigation |
 | D6 | Privacy manifest, copy catalog and owner-input documentation | Owner signing/provider/store inputs remain release gates |
+
+## Owner extension — Design-Kit 0.12.0 and telemetry (2026-11-12)
+
+The owner moved the Design submodule to `SpaceWorks-Labs/SpaceWorks-Design` `b2aa5bb` (0.12.0 token sync)
+and authorized Firebase Analytics, PostHog, Microsoft Clarity and Sentry per the shared telemetry spec.
+`docs/PRD.md` is unchanged; the extension is recorded here and in `AGENTS.md`.
+
+| Step | Deliverable | Gate |
+|---|---|---|
+| K1 | Kit palette (solid-black dark, `scrim`), `cards.aurora` card/ticket look, kit-aligned motion | Generator tests assert kit values |
+| K2 | Outfit (incl. 800/300 display) / Unbounded converted from WOFF2 at generation; no Gilroy (OFL only) | Font and bundle-audit tests |
+| K3 | Patch mascot on the first introduction page and whole-screen empty lists; dark variant; Reduce Motion static | Accessibility label; native build |
+| T1 | Telemetry facade, adapters, consent sheet and Profile → Privacy and analytics, typed events | Recording-fake unit tests; DEBUG/demo never send |
+| T2 | Privacy manifest, App Store labels, `docs/TELEMETRY.md` | Bundle audit checks collection flags and data types |

@@ -1,5 +1,21 @@
 # Phase notes
 
+## K/T — Design-Kit 0.12.0 and consent-gated telemetry (2026-11-13)
+
+Owner extensions of 2026-11-12/13 (`AGENTS.md`). **K** follows `SpaceWorks-Labs/SpaceWorks-Design` at
+`b2aa5bb`: solid-black dark palette and `scrim`, kit motion timings, the Aurora membership card and
+ticket, Patch on the introduction and whole-screen empty lists, and open-licensed typography only:
+Outfit for interface text, Outfit ExtraBold/Light for display headings, one Unbounded accent phrase.
+Gilroy is never converted or bundled (owner decision 2026-11-13; the earlier Gilroy licence question is
+closed by this decision). **T** adds Firebase Analytics (`FirebaseAnalyticsCore`, no ad identifiers),
+PostHog, Microsoft Clarity and Sentry behind one `Telemetry` facade, all off until configured and
+consented (`docs/TELEMETRY.md`). GoogleSignIn moved to 10.1.0 because Firebase 13 needs `app-check` 12.
+
+Parity checklist (K/T): introduction with Patch; "Help improve Space Works" sheet (one switch per configured
+purpose, Allow all, Save choices, Not now); Profile → Privacy and analytics with the withdrawal line;
+display headings Outfit 800, light display Outfit 300. Verified: generator suite, lint, dependency lock,
+native build and `SpaceWorksTests` on iPhone 17 (iOS 27.0).
+
 ## D — Mobile backend contract integration (2026-10-18)
 
 The owner asked for both apps to be finished against the mobile backend (`feature/mobile-backend` at

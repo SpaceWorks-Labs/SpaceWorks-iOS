@@ -105,6 +105,22 @@ Use [owner-approved sandbox payment procedure] only if payments are enabled for 
 [Add separate authorized staff steps only when the submitted deployment supports them.]
 ```
 
+## App Store privacy labels (telemetry)
+
+Answer only for the providers actually configured in the submitted build ([TELEMETRY.md](TELEMETRY.md)).
+With every telemetry key `null` and no `GoogleService-Info.plist`, none of the following apply.
+
+| App Store data type | When | Linked to the user | Used for tracking | Purpose |
+|---|---|---|---|---|
+| Usage Data → Product Interaction | Usage analytics or Session replay configured | Yes (pseudonymous id) | No | Analytics |
+| Diagnostics → Crash Data | Sentry configured | Yes (pseudonymous id) | No | App Functionality |
+| Diagnostics → Performance Data | Sentry configured | Yes (pseudonymous id) | No | App Functionality |
+| Diagnostics → Other Diagnostic Data | Sentry configured | Yes (pseudonymous id) | No | App Functionality |
+| Identifiers → User ID / Device ID | Any telemetry provider configured | Yes | No | Analytics (in addition to App Functionality) |
+
+All are optional and consent-based (off until the person turns them on; withdrawable in Profile → Privacy
+and analytics). No advertising identifier is collected and the app does not request tracking permission.
+
 ## Deployment fields before submission
 
 Use real owner HTTPS `support_url` and `privacy_url` in `branding/brand.json` and the console.
