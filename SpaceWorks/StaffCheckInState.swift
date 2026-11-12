@@ -30,6 +30,7 @@ final class StaffCheckInState {
         do {
             let resolved = try await parent.repository.resolveCheckIn(eventID: eventID, body: .init(checkin_token: value))
             guard active, current == generation else { return }; person = resolved; busy = false; feedback = .init(.selection)
+            Telemetry.shared.track(.qrScanned(context: "event_check_in"))
         } catch {
             guard active, current == generation else { return }; busy = false; parent.refuse(error)
             if active, current == generation, !APIError.isCancellation(error) { feedback = .init(.error) }
@@ -44,6 +45,7 @@ final class StaffCheckInState {
             _ = try await parent.repository.markAttended(registrationID: person.registration_id, body: .init(source: .init(value1: .qr)))
             guard active, current == generation else { return }
             confirmation = String(localized: "Attendance recorded for \(person.name)."); self.person = nil; busy = false; feedback = .init(.success)
+            Telemetry.shared.track(.eventCheckIn)
         } catch {
             guard active, current == generation else { return }; self.person = nil; busy = false; parent.refuse(error)
             if active, current == generation, !APIError.isCancellation(error) { feedback = .init(.error) }

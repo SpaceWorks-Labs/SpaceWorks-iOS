@@ -188,6 +188,7 @@ final class StaffHandoverState {
         busy = true; error = nil
         do {
             let result = try await parent.repository.resolveQR(body: .init(payload: value)); guard active else { return }
+            Telemetry.shared.track(.qrScanned(context: box ? "handover_container" : "handover_equipment"))
             guard result.qr.makerspace == parent.makerspaceID, result.qr.status.value1.rawValue == "active" else { throw validation("Scan an active code from this makerspace.") }
             let canonical = result.qr.payload
             guard !canonical.isEmpty, canonical.utf8.count <= 64,
@@ -277,6 +278,11 @@ final class StaffHandoverState {
                     notes: remark.trimmingCharacters(in: .whitespacesAndNewlines), qr_payload: boxCode.isEmpty ? nil : boxCode, resolutions: returns.map(\.body))).id
             }
             guard active else { return }; receipt = "\(mode.isReturn ? "Return" : "Issue") #\(id) recorded"
+            switch mode {
+            case .issue: Telemetry.shared.track(.staffItemIssued)
+            case .directIssue: Telemetry.shared.track(.staffDirectHandout)
+            case .returnRequest, .directReturn: Telemetry.shared.track(.staffItemReturned)
+            }
             notice = String(localized: "Evidence photo #\(evidenceID) is attached."); busy = false; step = steps.count - 1
             feedback = .init(.success)
             await parent.loadQueue(); await parent.loadDirect()

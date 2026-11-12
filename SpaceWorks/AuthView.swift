@@ -22,10 +22,10 @@ struct AuthRoot: View {
             switch auth.stage {
             case .restoring: ProgressView("Opening your makerspace…").frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.swBg)
             case .updateRequired: UpdateRequiredView(auth: auth, state: state)
-            case .signIn: SignInView(auth: auth, state: state)
+            case .signIn: SignInView(auth: auth, state: state).telemetryScreen(.sign_in)
             case .webConsole: WebConsoleNoticeView(auth: auth)
-            case .mfa, .recoveryCodes: MFAView(auth: auth)
-            case .passwordChange: PasswordChangeView(auth: auth)
+            case .mfa, .recoveryCodes: MFAView(auth: auth).telemetryScreen(auth.stage == .mfa ? .mfa : .recovery_codes)
+            case .passwordChange: PasswordChangeView(auth: auth).telemetryScreen(.password_change)
             case .securityCompletion:
                 AccountSecurityCompletionView(codes: auth.recoveryCodes, message: auth.securityMessage ?? "", continueToSignIn: auth.finishSecurityCompletion)
             case .signedIn:
@@ -42,7 +42,7 @@ struct AuthRoot: View {
         .nativeFeedback(auth.feedback)
         .task { await auth.restore(); bindRouting() }
         // The phone sheet belongs to this persistent root so it closes when sign-in leaves this stage.
-        .sheet(item: $auth.phoneForm) { form in PhoneSignInView(form: form) }
+        .sheet(item: $auth.phoneForm) { form in PhoneSignInView(form: form).telemetryScreen(.phone_sign_in) }
         .onChange(of: auth.stage) { _, stage in if stage != .signIn { auth.phoneForm = nil }; bindRouting() }
         .onChange(of: auth.user?.id) { _, _ in bindRouting() }
         .onChange(of: auth.foregroundHintRevision) { _, _ in Task { await auth.processForegroundHint() } }
@@ -198,7 +198,7 @@ struct SignInView: View {
                     if geometry.size.width >= 960 && geometry.size.height >= 600 && !typeSize.isAccessibilitySize {
                         VStack(alignment: .leading, spacing: 24) {
                             BrandWordmark(spacious: true)
-                            Text("Less searching.\nMore making.").font(.custom("Unbounded-Regular", size: 24, relativeTo: .title2).weight(.medium))
+                            Text("Less searching.\nMore making.").brandAccent()
                             Text("Borrow hardware. Make room for your next idea.").brandFont(.title3)
                         }.padding(40).frame(maxWidth: 460, minHeight: 460, alignment: .leading)
                             .background(Color.swSurface, in: RoundedRectangle(cornerRadius: 28)).foregroundStyle(Color.swInk)

@@ -41,6 +41,7 @@ final class EventRegistrationState {
             let input = try JSONDecoder().decode(Components.Schemas.PublicEventRegistrationInput.self, from: JSONSerialization.data(withJSONObject: body))
             let response = try await repository.register(event: event.public_token, input: input)
             guard active else { return }; result = response
+            Telemetry.shared.track(.eventRegistered)
         } catch { if active { self.error = APIError.display(error); retryAfter = APIError.retryDeadline(error) } }
     }
     func resetReceipt() { if active && !busy { result = nil; error = nil } }

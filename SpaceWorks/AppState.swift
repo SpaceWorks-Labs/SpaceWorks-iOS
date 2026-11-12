@@ -55,6 +55,8 @@ final class AppState {
             serverInput = origin.url.absoluteString
             connectedOrigin = origin
             screen = .shell
+            Telemetry.shared.setDeployment(origin.url)
+            Telemetry.shared.track(.serverConnected(locked: locked))
         } catch {
             self.error = APIError.display(error)
             retryAfter = APIError.retryDeadline(error)

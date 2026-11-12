@@ -9,13 +9,14 @@ struct RootView: View {
     @State private var linkRouter = MobileLinkRouter()
     @State private var pendingURL: URL?
     @AppStorage("introduction-complete") private var introComplete = false
+    @State private var consentPrompt = false
     #if DEBUG
     @State private var exploringDemo = false
     #endif
     var body: some View {
         Group {
             if !introComplete {
-                IntroductionView { introComplete = true }
+                IntroductionView { introComplete = true; Telemetry.shared.track(.onboardingCompleted) }.telemetryScreen(.intro)
             } else {
             #if DEBUG
             if exploringDemo {
@@ -57,10 +58,18 @@ struct RootView: View {
             installTapHandler()
             await state.restore()
         }
+        // "Help improve" asks once per configured purpose, after the introduction and before the server
+        // step; it never blocks sign-in (dismissing it is "Not now").
+        .task(id: introComplete) { consentPrompt = introComplete && Telemetry.shared.needsPrompt }
+        .sheet(isPresented: $consentPrompt, onDismiss: {
+            let telemetry = Telemetry.shared
+            if telemetry.needsPrompt { telemetry.setConsent(Dictionary(uniqueKeysWithValues: telemetry.unaskedPurposes.map { ($0, false) })) }
+        }) { TelemetryConsentSheet(telemetry: .shared) { consentPrompt = false } }
         .onChange(of: linkRouter.revision) { _, _ in Task { await linkRouter.process() } }
         #if DEBUG
         .onChange(of: exploringDemo) { _, value in
             NativeDemoEntryDiagnostics.record(.rootStateChanged, exploringDemo: value)
+            Telemetry.shared.demoActive = value
         }
         #endif
         .onOpenURL { url in
@@ -86,14 +95,14 @@ struct RootView: View {
         }
     }
     private func open(_ url: URL, origin: ServerOrigin) {
-        if let link = MobileLink.url(url, origin: origin) { linkRouter.receive(link) }
-        else if let legacy = MobileLink.legacy(url.absoluteString, origin: origin) { linkRouter.receive(legacy) }
+        if let link = MobileLink.url(url, origin: origin) { Telemetry.shared.track(.deepLinkOpened(kind: link.destination.telemetryKind)); linkRouter.receive(link) }
+        else if let legacy = MobileLink.legacy(url.absoluteString, origin: origin) { Telemetry.shared.track(.deepLinkOpened(kind: "legacy")); linkRouter.receive(legacy) }
         else { linkRouter.refuseURL() }
     }
     private var liveContent: some View {
         VStack(spacing: 0) {
             switch state.screen {
-            case .connect: ConnectView(state: state)
+            case .connect: ConnectView(state: state).telemetryScreen(.server_connect)
             case .shell:
                 if let origin = state.connectedOrigin { AuthRoot(state: state, origin: origin, linkRouter: linkRouter) }
             }
@@ -295,6 +304,7 @@ private struct MemberWorkspace: View {
     private func destination(_ tab: AppTab) -> some View {
         NavigationStack(path: navigation.path(tab)) {
             MemberScreen(state: state, auth: auth, member: member, tab: tab, actions: actions, cart: cart, drafts: drafts, navigation: navigation, capabilities: capabilities, payments: payments, account: account, staff: staff, insights: insights, linkRouter: linkRouter)
+                .telemetryScreen(tab.telemetryScreen)
                 .navigationDestination(for: MemberRoute.self) { route in
                     MemberRouteView(route: route, member: member, actions: actions, cart: cart, drafts: drafts, navigation: navigation, capabilities: capabilities, isDemo: false, payments: payments, staff: staff, account: account, insights: insights) { await auth.foreground() }
                 }
@@ -353,7 +363,10 @@ private struct MemberScreen: View {
                         NavigationLink("Payments", value: MemberRoute.payments).frame(minHeight: 48).accessibilityIdentifier("payments-entry")
                         if staff != nil { NavigationLink("Staff tools", value: MemberRoute.staff).frame(minHeight: 48).accessibilityIdentifier("staff-tools") }
                         if let notifications = auth.notifications {
-                            NavigationLink("Notifications") { NotificationSettingsView(state: notifications) }.frame(minHeight: 48).accessibilityIdentifier("notifications-entry")
+                            NavigationLink("Notifications") { NotificationSettingsView(state: notifications).telemetryScreen(.notification_settings) }.frame(minHeight: 48).accessibilityIdentifier("notifications-entry")
+                        }
+                        if !Telemetry.shared.availablePurposes.isEmpty {
+                            NavigationLink("Privacy and analytics") { PrivacyAnalyticsView(telemetry: .shared) }.frame(minHeight: 48).accessibilityIdentifier("privacy-analytics-entry")
                         }
                         if let lock = auth.appLock, lock.available {
                             Toggle(lock.title, isOn: Binding(get: { lock.enabled }, set: { value in Task { await lock.setEnabled(value) } }))
@@ -363,6 +376,7 @@ private struct MemberScreen: View {
                         Button("Show introduction") { replayIntro = true }.frame(minHeight: 48)
                         NavigationLink("App guide") {
                             AppGuideView(staffAvailable: staff != nil, serverLabel: state.connectedOrigin?.url.absoluteString, replayTips: member.replayGuidance)
+                                .telemetryScreen(.app_guide)
                         }.frame(minHeight: 48).accessibilityIdentifier("app-guide")
                         Button("Show helpful tips") { member.replayGuidance() }.frame(minHeight: 48)
                         Button("Sign out", role: .destructive) { confirmSignOut = true }.frame(minHeight: 48).disabled(auth.busy)

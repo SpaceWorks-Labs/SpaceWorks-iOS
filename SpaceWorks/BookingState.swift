@@ -40,6 +40,7 @@ final class BookingState {
         do {
             let response = try await repository.book(space: space.public_token, input: submission)
             guard active, expected == generation else { return }; result = response
+            Telemetry.shared.track(.bookingCreated)
         } catch {
             guard active, expected == generation else { return }; self.error = APIError.display(error); retryAfter = APIError.retryDeadline(error)
             if [409, 423, 503].contains(APIError.status(error) ?? 0) { availability = nil }

@@ -89,6 +89,7 @@ final class PaymentsState {
         switch checkout { case .preparing, .presenting, .checking: return true; default: return false }
     }
     var canRequest: Bool { active && Date() >= retryAfter }
+    private var telemetryVendor = "unknown"
     func record(_ id: Int) -> Components.Schemas.MemberPayment? { records.first { $0.id == id } }
     func requiresStatusRefresh(_ id: Int) -> Bool { needsFreshStatus.contains(id) }
     func canPay(_ row: Components.Schemas.MemberPayment) -> Bool {
@@ -157,6 +158,8 @@ final class PaymentsState {
                 throw APIError(status: 0, code: "invalid_payment_setup", detail: String(localized: "Payment setup is unavailable. Contact your makerspace."))
             }
             checkout = .presenting(paymentID)
+            if case .stripe = intent { telemetryVendor = "stripe" } else { telemetryVendor = "razorpay" }
+            Telemetry.shared.track(.paymentStarted(vendor: telemetryVendor))
             return (attempt, intent)
         } catch {
             guard matches(attempt) else { return nil }
@@ -193,6 +196,7 @@ final class PaymentsState {
                 records = result; load = .ready; needsFreshStatus.remove(paymentID)
                 if let row = record(paymentID), ["paid_online", "paid_offline", "waived"].contains(row.status?.rawValue ?? "") {
                     checkoutAttempt = nil; checkout = .completed(paymentID)
+                    Telemetry.shared.track(.paymentFinished(vendor: telemetryVendor, outcome: "paid"))
                     await loadDocuments(); return
                 }
                 if record(paymentID)?.status?.rawValue == "canceled" {
@@ -201,6 +205,7 @@ final class PaymentsState {
             }
             guard matches(attempt) else { return }
             checkoutAttempt = nil
+            Telemetry.shared.track(.paymentFinished(vendor: telemetryVendor, outcome: outcome.telemetryOutcome))
             switch outcome {
             case .awaitingServerConfirmation: checkout = .awaiting(paymentID)
             case .cancelled: checkout = .stopped(paymentID, "Checkout closed. Check the current payment status before trying again.")
@@ -245,6 +250,7 @@ final class PaymentsState {
             let data = try await repository.documentPDF(documentID: document.id)
             guard active, generation == previewGeneration else { return }
             preview = try NativeFileTransfer.document(data: data, kind: .pdf, suggestedName: document.number)
+            Telemetry.shared.track(.receiptDownloaded)
         } catch {
             guard active, generation == previewGeneration else { return }
             failAuthorization(error)

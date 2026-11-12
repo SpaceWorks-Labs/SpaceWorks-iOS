@@ -419,6 +419,17 @@
         }
       }
     },
+    "Allow all": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow all"
+          }
+        }
+      }
+    },
     "Always-on safety messages: ": {
       "extractionState": "manual",
       "localizations": {
@@ -1585,6 +1596,17 @@
         }
       }
     },
+    "Choose what this app may share to help fix problems and improve features. Everything is off until you turn it on. Your name, email and what you type are never sent.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose what this app may share to help fix problems and improve features. Everything is off until you turn it on. Your name, email and what you type are never sent."
+          }
+        }
+      }
+    },
     "Choose whether this makerspace can reach you by text message or WhatsApp. App notifications and email are set separately.": {
       "extractionState": "manual",
       "localizations": {
@@ -1988,6 +2010,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Country code"
+          }
+        }
+      }
+    },
+    "Crash and performance reports": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crash and performance reports"
+          }
+        }
+      }
+    },
+    "Crash, freeze and speed reports, with addresses and IDs removed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crash, freeze and speed reports, with addresses and IDs removed."
           }
         }
       }
@@ -4269,6 +4313,17 @@
         }
       }
     },
+    "Masked recordings of how screens are used. Text, inputs and images are hidden; sign-in, payment and code screens are never recorded.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masked recordings of how screens are used. Text, inputs and images are hidden; sign-in, payment and code screens are never recorded."
+          }
+        }
+      }
+    },
     "Membership": {
       "extractionState": "manual",
       "localizations": {
@@ -4562,6 +4617,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Not issued"
+          }
+        }
+      }
+    },
+    "Not now": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not now"
           }
         }
       }
@@ -5116,6 +5182,17 @@
         }
       }
     },
+    "Patch, the Space Works mascot": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Patch, the Space Works mascot"
+          }
+        }
+      }
+    },
     "Payment and approval are confirmed by your makerspace. This receipt does not confirm a payment.": {
       "extractionState": "manual",
       "localizations": {
@@ -5651,6 +5728,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prints awaiting collection"
+          }
+        }
+      }
+    },
+    "Privacy and analytics": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy and analytics"
           }
         }
       }
@@ -6744,6 +6832,17 @@
         }
       }
     },
+    "Save choices": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save choices"
+          }
+        }
+      }
+    },
     "Save new recovery codes before continuing. Some security changes end your sessions and require a fresh sign-in. A verified phone and an editable contact phone serve different purposes.": {
       "extractionState": "manual",
       "localizations": {
@@ -6960,6 +7059,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Server address"
+          }
+        }
+      }
+    },
+    "Session replay": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session replay"
           }
         }
       }
@@ -8647,6 +8757,17 @@
         }
       }
     },
+    "Usage analytics": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usage analytics"
+          }
+        }
+      }
+    },
     "Use 123456 for this demo. No message or authenticator request was sent.": {
       "extractionState": "manual",
       "localizations": {
@@ -9175,6 +9296,28 @@
         }
       }
     },
+    "Which screens and features are used, never your name or what you type.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Which screens and features are used, never your name or what you type."
+          }
+        }
+      }
+    },
+    "Withdrawing stops collection now. It cannot delete what a provider already holds.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Withdrawing stops collection now. It cannot delete what a provider already holds."
+          }
+        }
+      }
+    },
     "Working…": {
       "extractionState": "manual",
       "localizations": {
@@ -9204,6 +9347,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "You can ask to restore your identity before the retention period ends. Memberships, roles, sessions and notifications stay revoked."
+          }
+        }
+      }
+    },
+    "You can change this any time in Profile → Privacy and analytics.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can change this any time in Profile → Privacy and analytics."
           }
         }
       }

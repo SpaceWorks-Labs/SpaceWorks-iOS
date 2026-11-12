@@ -371,7 +371,7 @@ struct MemberInbox: View {
                     .onChange(of: state.unreadOnly) { _, _ in Task { await state.loadInbox() } }
                 Button("Mark all as read") { Task { await state.markAllRead() } }.frame(minHeight: 48).disabled(state.inboxMutating)
                 LoadFeedback(load: state.inboxLoad, lastUpdated: state.updated["inbox"], retryAfter: state.deadline("inbox")) { await state.loadInbox() }
-                if state.inboxLoad == .ready && state.messages.isEmpty { SWCard { Text("Nothing here yet.").foregroundStyle(Color.swMuted) } }
+                if state.inboxLoad == .ready && state.messages.isEmpty { SWCard { SWEmptyState() } }
                 ForEach(state.messages, id: \.id) { message in
                     SWCard {
                         if dynamicTypeSize.isAccessibilitySize {
@@ -408,7 +408,7 @@ struct MemberCardView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                SWCard {
+                AuroraCard {
                     if state.repository.isDemo { Text("Demo mode · sample data").brandFont(.caption, weight: .bold).foregroundStyle(Color.swMuted) }
                     Text("Membership card").brandFont(.largeTitle, weight: .bold)
                     LoadFeedback(load: state.cardLoad, retryAfter: state.deadline("card")) { await state.loadCard() }
@@ -424,7 +424,7 @@ struct MemberCardView: View {
                     } else if state.cardLoad == .ready { Text("Your membership card isn't active. Ask the front desk for help.").foregroundStyle(Color.swMuted) }
                 }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
             }.background(Color.swBg).toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.frame(minHeight: 48) } }
-        }.privacySensitive().task { await state.loadCard() }
+        }.privacySensitive().telemetryScreen(.membership_card).task { await state.loadCard() }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await state.loadCard() } } }
     }
     private static func qrImage(_ value: String) -> UIImage? {

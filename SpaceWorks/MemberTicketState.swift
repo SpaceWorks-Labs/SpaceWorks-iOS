@@ -24,12 +24,13 @@ import SpaceWorksAPI
             guard active, !cancelled, expected == generation else { return }
             guard let rendered = NativeQRSVG.image(data) else { error = String(localized: "This ticket image could not be opened. Try again or ask the event desk for help."); return }
             image = rendered; retryAfter = nil
+            Telemetry.shared.track(.ticketOpened)
         } catch { if active, expected == generation { self.error = APIError.display(error); retryAfter = APIError.retryDeadline(error) } }
     }
     func cancel(now: Date = Date()) async {
         guard active, !busy, !cancelled, registration.can_cancel, (retryAfter ?? .distantPast) <= now else { return }
         generation += 1; cancelling = true; busy = true; image = nil; error = nil; defer { busy = false; cancelling = false }
-        do { _ = try await repository.cancelEvent(registration: registration.registration_id); guard active else { return }; cancelled = true; retryAfter = nil }
+        do { _ = try await repository.cancelEvent(registration: registration.registration_id); guard active else { return }; cancelled = true; retryAfter = nil; Telemetry.shared.track(.eventRegistrationCancelled) }
         catch { if active { self.error = APIError.display(error); retryAfter = APIError.retryDeadline(error) } }
     }
     func invalidate() { active = false; generation += 1; image = nil; error = nil; retryAfter = nil }

@@ -63,7 +63,7 @@ struct StaffRequestsView: View {
                 StaffFeedback(load: state.load) { await state.loadQueue() }
                 if let error = state.error { SWError(message: error) }
                 if let notice = state.notice { Label(notice, systemImage: "checkmark.circle").accessibilityIdentifier("staff-request-notice") }
-                if state.load == .ready && state.requests.isEmpty { Text("Nothing here yet.").foregroundStyle(Color.swMuted) }
+                if state.load == .ready && state.requests.isEmpty { SWEmptyState() }
                 ForEach(state.requests, id: \.id) { row in
                     NavigationLink { StaffRequestDetail(state: state, row: row) } label: {
                         SWCard {
@@ -194,7 +194,7 @@ private struct StaffCheckInView: View {
             }
         }.padding(24).frame(maxWidth: 720).frame(maxWidth: .infinity) }.background(Color.swBg).navigationTitle("Check-in").navigationBarTitleDisplayMode(.inline)
             .nativeFeedback(state.feedback)
-            .sheet(isPresented: $scanner) { NativeQRScanner(title: String(localized: "Check-in code")) { value in scanner = false; Task { await state.resolve(value) } } }
+            .sheet(isPresented: $scanner) { NativeQRScanner(title: String(localized: "Check-in code")) { value in scanner = false; Task { await state.resolve(value) } }.telemetryScreen(.staff_scan) }
     }
 }
 

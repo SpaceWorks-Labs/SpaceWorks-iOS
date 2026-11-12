@@ -18,11 +18,15 @@ class ReleaseBundleAuditTests(unittest.TestCase):
         self.app = Path(self.directory.name) / 'SpaceWorks.app'
         self.app.mkdir()
         self.brand = {'ios_bundle_id': 'org.spaceworks.app', 'app_name': 'Space Works'}
-        self.info = {'CFBundleIdentifier': 'org.spaceworks.app', 'CFBundleDisplayName': 'Space Works', 'UIDeviceFamily': [1, 2], 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '1', 'NSCameraUsageDescription': 'Camera use', 'NSFaceIDUsageDescription': 'App lock', 'CFBundleURLTypes': [{'CFBundleURLSchemes': ['spaceworks']}], 'UISupportedInterfaceOrientations': ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'], 'UISupportedInterfaceOrientations~ipad': ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'], 'UIAppFonts': ['Gilroy-Regular.ttf', 'Gilroy-Medium.ttf', 'Gilroy-SemiBold.ttf', 'Gilroy-Bold.ttf', 'Unbounded-Variable.ttf'], 'CFBundleExecutable': 'SpaceWorks', 'CFBundleIcons': {'CFBundlePrimaryIcon': {'CFBundleIconName': 'AppIcon'}}}
+        self.info = {'CFBundleIdentifier': 'org.spaceworks.app', 'CFBundleDisplayName': 'Space Works', 'UIDeviceFamily': [1, 2], 'CFBundleShortVersionString': '0.1.0', 'CFBundleVersion': '1', 'NSCameraUsageDescription': 'Camera use', 'NSFaceIDUsageDescription': 'App lock', 'CFBundleURLTypes': [{'CFBundleURLSchemes': ['spaceworks']}], 'UISupportedInterfaceOrientations': ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'], 'UISupportedInterfaceOrientations~ipad': ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'], 'UIAppFonts': ['Outfit-Variable.ttf', 'Unbounded-Variable.ttf'], 'CFBundleExecutable': 'SpaceWorks', 'CFBundleIcons': {'CFBundlePrimaryIcon': {'CFBundleIconName': 'AppIcon'}}}
         self.info['UIApplicationSceneManifest'] = {'UIApplicationSupportsMultipleScenes': False}
+        self.info.update({'FIREBASE_ANALYTICS_COLLECTION_ENABLED': False, 'GOOGLE_ANALYTICS_ADID_COLLECTION_ENABLED': False,
+                          'GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED': False, 'GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS': False,
+                          'SpaceWorksTelemetry': {'debug_override': False}})
         self.write_info()
-        (self.app / 'PrivacyInfo.xcprivacy').write_bytes(plistlib.dumps({'NSPrivacyAccessedAPITypes': [{'NSPrivacyAccessedAPIType': 'NSPrivacyAccessedAPICategoryUserDefaults', 'NSPrivacyAccessedAPITypeReasons': ['CA92.1']}]}))
-        for name in ['Gilroy-Regular.ttf', 'Gilroy-Medium.ttf', 'Gilroy-SemiBold.ttf', 'Gilroy-Bold.ttf', 'Unbounded-Variable.ttf', 'Assets.car', 'SpaceWorks', 'en.lproj/InfoPlist.strings', 'en.lproj/Localizable.strings', 'SpaceWorksAPI_SpaceWorksAPI.bundle/en.lproj/Localizable.strings']:
+        collected = [{'NSPrivacyCollectedDataType': kind, 'NSPrivacyCollectedDataTypeLinked': True, 'NSPrivacyCollectedDataTypeTracking': False} for kind in module.TELEMETRY_DATA_TYPES]
+        (self.app / 'PrivacyInfo.xcprivacy').write_bytes(plistlib.dumps({'NSPrivacyTracking': False, 'NSPrivacyCollectedDataTypes': collected, 'NSPrivacyAccessedAPITypes': [{'NSPrivacyAccessedAPIType': 'NSPrivacyAccessedAPICategoryUserDefaults', 'NSPrivacyAccessedAPITypeReasons': ['CA92.1']}]}))
+        for name in [*module.BRAND_FONTS, *module.FONT_LICENCES, 'PostHog_PostHog.bundle/PrivacyInfo.xcprivacy', 'Assets.car', 'SpaceWorks', 'en.lproj/InfoPlist.strings', 'en.lproj/Localizable.strings', 'SpaceWorksAPI_SpaceWorksAPI.bundle/en.lproj/Localizable.strings']:
             path = self.app / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b'fixture')
@@ -35,7 +39,24 @@ class ReleaseBundleAuditTests(unittest.TestCase):
         self.assertEqual(result['failures'], [])
         self.assertEqual(result['kind'], 'unsigned-release-resource-audit')
         self.assertEqual(result['scene_manifest'], {'UIApplicationSupportsMultipleScenes': False})
-        self.assertEqual(result['privacy_manifests_present'], ['PrivacyInfo.xcprivacy'])
+        self.assertEqual(result['privacy_manifests_present'], ['PostHog_PostHog.bundle/PrivacyInfo.xcprivacy', 'PrivacyInfo.xcprivacy'],
+                         'SDK privacy manifests are recorded without being audited as the app manifest')
+
+    def test_refuses_gilroy_ad_identifier_support_and_enabled_firebase_collection(self):
+        (self.app / 'Gilroy-Bold.ttf').write_bytes(b'fixture')
+        (self.app / 'Frameworks/GoogleAppMeasurementIdentitySupport.framework').mkdir(parents=True)
+        self.info['FIREBASE_ANALYTICS_COLLECTION_ENABLED'] = True
+        self.info['NSUserTrackingUsageDescription'] = 'Track'
+        self.write_info()
+        (self.app / 'OFL-Outfit.txt').unlink()
+        failures = module.audit(self.app, self.brand)['failures']
+        for expected in ['Gilroy is not open-licensed', 'Advertising identifier', 'FIREBASE_ANALYTICS_COLLECTION_ENABLED', 'App Tracking Transparency', 'OFL-Outfit.txt']:
+            self.assertTrue(any(expected in failure for failure in failures), expected)
+
+    def test_requires_telemetry_data_types_in_app_privacy_manifest(self):
+        (self.app / 'PrivacyInfo.xcprivacy').write_bytes(plistlib.dumps({'NSPrivacyTracking': False, 'NSPrivacyAccessedAPITypes': [{'NSPrivacyAccessedAPIType': 'NSPrivacyAccessedAPICategoryUserDefaults', 'NSPrivacyAccessedAPITypeReasons': ['CA92.1']}]}))
+        failures = module.audit(self.app, self.brand)['failures']
+        self.assertTrue(any('NSPrivacyCollectedDataTypeCrashData' in failure for failure in failures))
 
     def test_catches_source_resources_omitted_from_app(self):
         (self.app / 'PrivacyInfo.xcprivacy').unlink()

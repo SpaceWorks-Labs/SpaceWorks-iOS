@@ -46,6 +46,7 @@ final class AuthState {
     private var pendingForegroundHint: (accountID: Int, makerspaceID: Int)?
     private var pushAccountID: Int?
     private let notificationOwnerID = UUID()
+    private var signInMethod = TelemetryEvent.SignInMethod.password
     private static var notificationOwner: UUID?
 
     init(origin: ServerOrigin, session: URLSession = DeploymentSession.make(), settings: UserDefaults = .standard,
@@ -180,6 +181,7 @@ final class AuthState {
         let feedbackGeneration = identityGeneration
         busy = true; error = nil
         defer { busy = false; password = "" }
+        startSignIn(.password)
         do {
             let challenge = try await service.challenge(appID: Brand.bundleID, development: NativeAttestor.development)
             let expires = Date().addingTimeInterval(TimeInterval(challenge.expires_in))
@@ -205,6 +207,7 @@ final class AuthState {
         let feedbackGeneration = identityGeneration
         busy = true; error = nil
         defer { busy = false }
+        switch provider { case .google: startSignIn(.google); case .apple: startSignIn(.apple); case .oidc: startSignIn(.oidc) }
         do {
             let challenge = try await service.challenge(appID: Brand.bundleID, development: NativeAttestor.development)
             let expires = Date().addingTimeInterval(TimeInterval(challenge.expires_in))
@@ -254,6 +257,7 @@ final class AuthState {
         let feedbackGeneration = identityGeneration
         busy = true; error = nil
         defer { busy = false }
+        startSignIn(.phone)
         do {
             let proof = try await attest(challenge)
             switch try await service.phoneSignInConfirm(phone: phone, code: code, challenge: challenge, attestationJSON: proof) {
@@ -267,7 +271,9 @@ final class AuthState {
             }
         } catch {
             if APIError.code(error) == "device_superadmin_not_supported" { refuse(error, generation: feedbackGeneration); return }
-            if identityGeneration == feedbackGeneration, !APIError.isCancellation(error) { feedback = .init(.error) }
+            if identityGeneration == feedbackGeneration, !APIError.isCancellation(error) {
+                feedback = .init(.error); Telemetry.shared.track(.signInFailed(.phone, code: TelemetryEvent.failureCode(error)))
+            }
             throw error
         }
     }
@@ -277,6 +283,7 @@ final class AuthState {
         mfaExpires = Date().addingTimeInterval(TimeInterval(challenge.expires_in))
         if challenge.enrollment_required { enrollment = try await service.enroll(challenge: challenge.challenge) }
         stage = .mfa
+        Telemetry.shared.track(.mfaChallengeShown(kind: challenge.enrollment_required ? "enrollment" : "verification"))
         if identityGeneration == generation { feedback = .init(.selection) }
     }
 
@@ -304,7 +311,10 @@ final class AuthState {
             return
         }
         fail(failure)
-        if identityGeneration == generation, !APIError.isCancellation(failure) { feedback = .init(.error) }
+        if identityGeneration == generation, !APIError.isCancellation(failure), !(failure is CancellationError) {
+            feedback = .init(.error)
+            Telemetry.shared.track(.signInFailed(signInMethod, code: TelemetryEvent.failureCode(failure)))
+        }
     }
     func leaveWebConsoleNotice() { guard stage == .webConsole else { return }; error = nil; stage = .signIn }
     func verify() async {
@@ -331,6 +341,7 @@ final class AuthState {
             try await service.makerspace.select(id, activeMemberships: Set(memberships.map(\.id)))
             selectedID = id
             settings.set(id, forKey: selectionKey)
+            Telemetry.shared.track(.makerspaceSwitched); identifyTelemetry()
         } catch {
             try? await service.makerspace.select(nil, activeMemberships: Set(memberships.map(\.id)))
             selectedID = nil; fail(error)
@@ -361,6 +372,7 @@ final class AuthState {
         guard !busy, !endingSession else { return }
         endingSession = true; busy = true; error = nil
         defer { busy = false; endingSession = false }
+        Telemetry.shared.track(.signOut(.device))
         let cleanup = detachNotificationCleanup()
         clearLocalIdentity()
         await cleanup.state?.stop(authorizedDirectMembershipIDs: cleanup.ids)
@@ -389,6 +401,7 @@ final class AuthState {
         }
         busy = false
         guard identityGeneration == generation, user?.id == accountID else { return }
+        Telemetry.shared.track(.signOut(.everywhere))
         await endRevokedSession(message: String(localized: "Signed out on every device and browser."))
     }
 
@@ -467,6 +480,7 @@ final class AuthState {
             return try await self.reauthenticationCredential(provider: provider, nonce: nonce)
         }, onDeleted: { [weak self] result, restorable in
             guard let self, self.identityGeneration == generation, self.user?.id == accountID else { return }
+            Telemetry.shared.track(.accountDeletionCompleted)
             let message = restorable
                 ? String(format: String(localized: "Your account was deleted. You can ask to restore it before %@ using password recovery."),
                          result.purge_after.formatted(date: .abbreviated, time: .omitted))
@@ -552,6 +566,7 @@ final class AuthState {
             try? await service.refresh.install(nil)
             throw error
         }
+        Telemetry.shared.track(.signInSucceeded(signInMethod))
     }
     private func loadIdentity() async throws {
         let generation = identityGeneration
@@ -575,6 +590,7 @@ final class AuthState {
         acceptedCredentials = credentials
         user = identity; selectedID = selection
         stage = identity.must_change_password ? .passwordChange : .signedIn
+        identifyTelemetry()
         if stage == .signedIn { configureNotifications(accountID: identity.id, credentials: credentials) }
         let lockScope = serverScope + ".\(identity.id)"
         if appLock?.scope != lockScope { appLock = NativeAppLock(scope: lockScope, settings: settings) }
@@ -699,6 +715,7 @@ final class AuthState {
         locallyLeftMemberships = []; securityMessage = nil; acceptedCredentials = nil
         user = nil; selectedID = nil; mfa = nil; mfaExpires = nil; enrollment = nil; recoveryCodes = []
         username = ""; password = ""; code = ""; appLock = nil; stage = .signIn
+        Telemetry.shared.reset()
     }
     private func clear() async {
         let cleanup = detachNotificationCleanup()
@@ -712,5 +729,14 @@ final class AuthState {
     }
     private func isUnauthorized(_ failure: Error) -> Bool {
         APIError.status(failure) == 401
+    }
+    private func startSignIn(_ method: TelemetryEvent.SignInMethod) {
+        signInMethod = method; Telemetry.shared.track(.signInStarted(method))
+    }
+    /// Pseudonymous identity; role_kind is staff only with native staff authority in the selected makerspace.
+    private func identifyTelemetry() {
+        guard let id = user?.id else { return }
+        let staff = staffToolsAvailable && !Set(selectedMembership?.actions ?? []).isDisjoint(with: StaffState.toolActions)
+        Telemetry.shared.identify(TelemetryUser(origin: origin.url, userID: id, roleKind: staff ? .staff : .member))
     }
 }

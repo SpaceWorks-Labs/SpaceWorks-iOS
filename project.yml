@@ -28,7 +28,20 @@ packages:
     exactVersion: 1.5.8
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS.git
-    exactVersion: 10.0.0
+    exactVersion: 10.1.0
+  # Telemetry (docs/TELEMETRY.md): consent-gated, configured only from public build-time values.
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    exactVersion: 13.1.1
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios.git
+    exactVersion: 3.94.4
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa.git
+    exactVersion: 9.34.0
+  Clarity:
+    url: https://github.com/microsoft/clarity-apps.git
+    exactVersion: 4.1.2
   SpaceWorksAPI:
     path: Packages/SpaceWorksAPI
 targets:
@@ -48,6 +61,15 @@ targets:
         product: StripePayments
       - package: Razorpay
         product: RazorpayCheckout
+      # FirebaseAnalyticsCore links no IDFA/AdSupport (no GoogleAppMeasurementIdentitySupport).
+      - package: Firebase
+        product: FirebaseAnalyticsCore
+      - package: PostHog
+        product: PostHog
+      - package: Sentry
+        product: Sentry
+      - package: Clarity
+        product: Clarity
     settings:
       configs:
         Debug:

@@ -68,6 +68,7 @@ struct AccountAccessView: View {
             .interactiveDismissDisabled(form.busy)
             .nativeFeedback(form.feedback)
             .onDisappear { form.retireFeedback(); form.clearSecrets() }
+            .telemetryScreen(form.step == .signUp || form.step == .created ? .sign_up : form.step == .emailVerification ? .email_verification : .password_reset)
     }
     private var heading: String {
         switch form.step {

@@ -33,7 +33,7 @@ struct AccountDeletionView: View {
             }
         }.padding(24).frame(maxWidth: 680).frame(maxWidth: .infinity) }
             .background(Color.swBg).foregroundStyle(Color.swInk).tint(Color.swAccentInk)
-            .navigationTitle("Delete account").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Delete account").navigationBarTitleDisplayMode(.inline).telemetryScreen(.account_deletion)
             .accessibilityIdentifier("account-deletion")
             .onDisappear { state.password = ""; state.code = ""; state.confirmation = "" }
             .toolbar { ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { fieldFocused = false; passwordFocused = false } } }

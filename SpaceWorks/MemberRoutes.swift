@@ -20,7 +20,8 @@ struct MemberRouteView: View {
     var onDemoFix: ((DemoDeletionState.Blocker) -> Void)? = nil
     #endif
     var profileSaved: () async -> Void = {}
-    var body: some View {
+    var body: some View { destination.telemetryScreen(route.telemetryScreen) }
+    @ViewBuilder private var destination: some View {
         switch route {
         case .product(let id): InventoryDetail(repository: member.repository, id: id, cart: cart, drafts: drafts) { await member.loadActivity(); drafts.registrationCancelled() }
         case .bookings: MemberBookingsView(state: member)
