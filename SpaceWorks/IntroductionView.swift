@@ -34,7 +34,11 @@ struct IntroductionView: View {
                         Button("Skip introduction") { NativeFeedback.play(.success); finish() }.frame(minHeight: 48)
                     }
                     VStack(alignment: .leading, spacing: 24) {
-                        if geometry.size.height >= 650 && !typeSize.isAccessibilitySize {
+                        if page == 0 {
+                            // Patch is the first page's one bold moment; it stays visible at every size.
+                            PatchMascot(size: geometry.size.height >= 650 && !typeSize.isAccessibilitySize ? 180 : 112)
+                                .frame(maxWidth: .infinity)
+                        } else if geometry.size.height >= 650 && !typeSize.isAccessibilitySize {
                             HStack(spacing: 16) {
                                 ForEach(symbols[page], id: \.self) { symbol in
                                     Image(systemName: symbol).font(.system(size: 32)).frame(maxWidth: .infinity, minHeight: 100)

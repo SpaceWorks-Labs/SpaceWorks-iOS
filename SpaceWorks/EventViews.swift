@@ -84,7 +84,7 @@ struct MemberRegistrationView: View {
     }
     var body: some View {
         ScrollView {
-            SWCard {
+            AuroraCard {
                 if isDemo { Text("Demo mode · sample event ticket").brandFont(.caption, weight: .bold).foregroundStyle(Color.swMuted) }
                 Text(registration.event_title).brandFont(.largeTitle, weight: .bold)
                 Text(registration.starts_at.formatted(date: .abbreviated, time: .shortened)).foregroundStyle(Color.swMuted)

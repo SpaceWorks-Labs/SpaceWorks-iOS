@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import pathlib
 import plistlib
 import re
@@ -29,8 +30,53 @@ def inside(relative):
     return path
 
 
-def generate(raster=True):
+TELEMETRY_KEYS = {
+    "sentry_dsn": r"https://[0-9a-f]{16,64}@[A-Za-z0-9.-]+(:[0-9]{1,5})?/[0-9]{1,20}",
+    "sentry_environment": r"[A-Za-z0-9_.-]{1,64}",
+    "sentry_traces_sample_rate": None,
+    "posthog_api_key": r"phc_[A-Za-z0-9]{10,64}",
+    "posthog_host": r"https://[A-Za-z0-9.-]+(:[0-9]{1,5})?",
+    "clarity_project_id": r"[a-z0-9]{6,32}",
+}
+
+
+def telemetry_config(brand, environ):
+    """Public provider identifiers from brand.json, each overridable by SPACEWORKS_<KEY> at build time."""
+    block = brand.get("telemetry") or {}
+    if not isinstance(block, dict) or set(block) - set(TELEMETRY_KEYS):
+        raise ValueError("telemetry accepts only " + ", ".join(TELEMETRY_KEYS))
+    config = {}
+    for key, pattern in TELEMETRY_KEYS.items():
+        value = environ.get("SPACEWORKS_" + key.upper()) or block.get(key)
+        if value is None:
+            continue
+        if pattern is None:
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                raise ValueError(f"Invalid telemetry.{key}") from None
+            if isinstance(block.get(key), bool) or not 0 <= value <= 1:
+                raise ValueError(f"Invalid telemetry.{key}")
+        elif not isinstance(value, str) or not re.fullmatch(pattern, value):
+            # Secret-bearing values (Sentry auth tokens, PostHog personal keys) never match.
+            raise ValueError(f"Invalid telemetry.{key}")
+        config[key] = value
+    config["debug_override"] = environ.get("SPACEWORKS_TELEMETRY_DEBUG", "").lower() in ("1", "true")
+    return config
+
+
+def color_entry(color, mode):
+    entry = {"idiom": "universal", "color": {"color-space": "srgb", "components": {
+        "red": "0x" + color[1:3], "green": "0x" + color[3:5], "blue": "0x" + color[5:7], "alpha": "1.000"}}}
+    if mode == "dark":
+        entry["appearances"] = [{"appearance": "luminosity", "value": "dark"}]
+    return entry
+
+
+def generate(raster=True, environ=None):
+    environ = os.environ if environ is None else environ
     brand = json.loads((ROOT / "branding/brand.json").read_text())
+    telemetry = telemetry_config(brand, environ)
     links_spec = importlib.util.spec_from_file_location("spaceworks_brand_links", ROOT / "scripts/brand_links.py")
     links_module = importlib.util.module_from_spec(links_spec)
     links_spec.loader.exec_module(links_module)
@@ -62,6 +108,16 @@ def generate(raster=True):
         for role, color in tokens[mode].items():
             if not isinstance(color, str) or not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
                 raise ValueError(f"Invalid token {mode}.{role}")
+    # Optional Design-Kit card looks (cards.aurora): the membership card and event ticket.
+    cards = {}
+    for card, look in (tokens.get("cards") or {}).items():
+        if not isinstance(look, dict) or not isinstance(look.get("light"), dict) or look.get("light", {}).keys() != (look.get("dark") or {}).keys():
+            raise ValueError(f"Card {card} requires matching light and dark roles")
+        for mode in ["light", "dark"]:
+            for role, color in look[mode].items():
+                if not isinstance(color, str) or not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
+                    raise ValueError(f"Invalid token cards.{card}.{mode}.{role}")
+        cards[card] = look
     for key in ["ios_bundle_id", "ios_team_id"]:
         if not re.fullmatch(r"[A-Za-z0-9.-]*", brand[key]):
             raise ValueError(f"Invalid {key}")
@@ -76,6 +132,9 @@ def generate(raster=True):
           + f"BRAND_BUNDLE_ID = {brand['ios_bundle_id']}\n"
           + f"BRAND_DISPLAY_NAME = {brand['app_name']}\n"
           + f"BRAND_TEAM_ID = {brand['ios_team_id']}\n")
+    fonts_spec = importlib.util.spec_from_file_location("spaceworks_fonts", ROOT / "scripts/brand_fonts.py")
+    fonts_module = importlib.util.module_from_spec(fonts_spec)
+    fonts_spec.loader.exec_module(fonts_module)
     capability_spec = importlib.util.spec_from_file_location("spaceworks_capabilities", ROOT / "scripts/mobile_capabilities.py")
     capability_module = importlib.util.module_from_spec(capability_spec)
     capability_spec.loader.exec_module(capability_module)
@@ -94,7 +153,15 @@ def generate(raster=True):
         info = {"CFBundleDisplayName": brand["app_name"], "UILaunchScreen": {}, "UIApplicationSceneManifest": {"UIApplicationSupportsMultipleScenes": False}}
         info["UISupportedInterfaceOrientations"] = ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
         info["UISupportedInterfaceOrientations~ipad"] = info["UISupportedInterfaceOrientations"] + ["UIInterfaceOrientationPortraitUpsideDown"]
-        info["UIAppFonts"] = ["Gilroy-Regular.ttf", "Gilroy-Medium.ttf", "Gilroy-SemiBold.ttf", "Gilroy-Bold.ttf", "Unbounded-Variable.ttf"]
+        info["UIAppFonts"] = fonts_module.app_fonts()
+        # Telemetry: public identifiers only; every provider stays off until consent (docs/TELEMETRY.md).
+        info["SpaceWorksTelemetry"] = telemetry
+        info["FIREBASE_ANALYTICS_COLLECTION_ENABLED"] = False
+        info["GOOGLE_ANALYTICS_ADID_COLLECTION_ENABLED"] = False
+        info["GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED"] = False
+        info["GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS"] = False
+        info["FirebaseAutomaticScreenReportingEnabled"] = False
+        info["FirebaseAppDelegateProxyEnabled"] = False
         info["NSCameraUsageDescription"] = "Scan member and event codes or photograph handover evidence when you choose to."
         info["NSFaceIDUsageDescription"] = "Unlock your makerspace account when you turn on app lock."
         schemes = ["spaceworks"]
@@ -128,18 +195,24 @@ def generate(raster=True):
     for role, light in tokens["light"].items():
         name = "sw" + "".join(w.title() for w in role.split("-"))
         declarations.append(f'    static let {name} = Color("{role}")')
-        colors = []
-        for mode in ["light", "dark"]:
-            color = tokens[mode][role]
-            if not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
-                raise ValueError(f"Invalid token {mode}.{role}")
-            entry = {"idiom": "universal", "color": {"color-space": "srgb", "components": {
-                "red": "0x" + color[1:3], "green": "0x" + color[3:5], "blue": "0x" + color[5:7], "alpha": "1.000"}}}
-            if mode == "dark":
-                entry["appearances"] = [{"appearance": "luminosity", "value": "dark"}]
-            colors.append(entry)
+        colors = [color_entry(tokens[mode][role], mode) for mode in ["light", "dark"]]
         write(assets / f"{role}.colorset/Contents.json", json.dumps({"colors": colors, "info": {"author": "xcode", "version": 1}}, indent=2))
+    for card, look in cards.items():
+        for role in look["light"]:
+            name = f"card-{card}-{role}"
+            declarations.append(f'    static let {"sw" + "".join(w.title() for w in name.split("-"))} = Color("{name}")')
+            write(assets / f"{name}.colorset/Contents.json", json.dumps({"colors": [color_entry(look[mode][role], mode) for mode in ["light", "dark"]],
+                "info": {"author": "xcode", "version": 1}}, indent=2))
     write(ROOT / "SpaceWorks/Generated/Theme.swift", "// Generated from semantic tokens, both appearances.\nimport SwiftUI\nextension Color {\n" + "\n".join(declarations) + "\n}\n")
+    fonts_module.generate_fonts(ROOT)
+    # Patch, the Design-Kit mascot: the sheet-size hero pose, with the die-cut dark/ variant for dark mode.
+    mascot = assets / "Patch.imageset"
+    mascot.mkdir(parents=True, exist_ok=True)
+    for name, source in [("light.png", "design/mascot/original/patch.png"), ("dark.png", "design/mascot/dark/patch.png")]:
+        shutil.copyfile(inside(source), mascot / name)
+    write(mascot / "Contents.json", json.dumps({"images": [{"idiom": "universal", "filename": "light.png", "scale": "3x"},
+        {"idiom": "universal", "filename": "dark.png", "scale": "3x", "appearances": [{"appearance": "luminosity", "value": "dark"}]}],
+        "info": {"author": "xcode", "version": 1}}))
     motion_spec = importlib.util.spec_from_file_location("spaceworks_motion", ROOT / "scripts/generate_motion.py")
     motion_module = importlib.util.module_from_spec(motion_spec)
     motion_spec.loader.exec_module(motion_module)

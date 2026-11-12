@@ -42,6 +42,10 @@ class CapabilityTests(unittest.TestCase):
                 shutil.copyfile(ROOT / relative, target)
             shutil.copytree(ROOT / "scripts", root / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
             shutil.copytree(ROOT / "Fixtures/Member", root / "Fixtures/Member")
+            shutil.copytree(ROOT / "design/fonts", root / "design/fonts")
+            shutil.copytree(ROOT / "SpaceWorks/Generated/Fonts", root / "SpaceWorks/Generated/Fonts")
+            (root / ".build").mkdir()
+            shutil.copyfile(ROOT / ".build/font-stamp.json", root / ".build/font-stamp.json")
             brand_file = root / "branding/brand.json"
             brand = json.loads(brand_file.read_text(encoding="utf-8"))
             brand.update(ios_team_id="ABC1234567", aps_environment="production", associated_domains=["applinks:lab.example"])

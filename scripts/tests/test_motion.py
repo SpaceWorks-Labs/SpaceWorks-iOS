@@ -1,5 +1,4 @@
 import copy
-import hashlib
 import importlib.util
 import json
 import pathlib
@@ -35,7 +34,12 @@ class MotionTests(unittest.TestCase):
         for asset, filename, source in artwork.selected_artwork(ROOT, brand):
             self.assertEqual((ROOT / f"SpaceWorks/Assets.xcassets/{asset}.imageset/{filename}").read_bytes(), source.read_bytes())
 
-    def test_native_accent_font_has_recorded_license_and_provenance(self):
-        font = ROOT / "SpaceWorks/Resources/Fonts/Unbounded-Variable.ttf"
-        self.assertEqual(hashlib.sha256(font.read_bytes()).hexdigest(), "87526b420190c9008a880bbf1780ab8c1563d55abb772a9cc6ed7e7b81306c3d")
-        self.assertEqual((font.parent / "OFL-Unbounded.txt").read_bytes(), (ROOT / "design/fonts/LICENSES/OFL-Unbounded.txt").read_bytes())
+    def test_shared_motion_matches_the_design_kit_tokens_where_they_overlap(self):
+        document = json.loads((ROOT / "tokens/mobile-motion.json").read_text())
+        kit = json.loads((ROOT / "design/tokens/tokens.json").read_text())["motion"]
+        self.assertEqual(motion.kit_mismatches(document, kit), [])
+        self.assertEqual(document["duration_ms"]["overlay_enter"], 180)
+        self.assertEqual(document["easing"]["overlay_enter_cubic_bezier"], [0.16, 1.0, 0.3, 1.0])
+        drifted = copy.deepcopy(document)
+        drifted["duration_ms"]["expand"] = 200
+        self.assertEqual(motion.kit_mismatches(drifted, kit), ["duration_ms.expand"])

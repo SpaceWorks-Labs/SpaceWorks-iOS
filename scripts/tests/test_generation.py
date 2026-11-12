@@ -73,6 +73,13 @@ class GenerationTests(unittest.TestCase):
             (root / "design/logo").mkdir(parents=True)
             for name in ["lockup-horizontal-one-colour-ink.png", "lockup-horizontal-reversed.png", "lockup-stacked.png", "lockup-stacked-reversed.png", "symbol.png", "symbol-reversed.png"]:
                 shutil.copyfile(ROOT / "design/logo" / name, root / "design/logo" / name)
+            shutil.copytree(ROOT / "design/fonts", root / "design/fonts")
+            for name in ["original/patch.png", "dark/patch.png"]:
+                (root / "design/mascot" / name).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT / "design/mascot" / name, root / "design/mascot" / name)
+            shutil.copytree(ROOT / "SpaceWorks/Generated/Fonts", root / "SpaceWorks/Generated/Fonts")
+            (root / ".build").mkdir()
+            shutil.copyfile(ROOT / ".build/font-stamp.json", root / ".build/font-stamp.json")
             brand = json.loads((root / "branding/brand.json").read_text())
             brand.update(app_name="Workshop", ios_bundle_id="org.example.workshop", app_icon="branding/custom-icon.svg", theme_tokens="branding/custom-tokens.json", privacy_url="HTTPS://B\u00dcCHER.example/privacy?lang=en#retention")
             (root / brand["app_icon"]).write_text((ROOT / "branding/app-icon.svg").read_text().replace("#FFF4E8", "#FAF2E8"))
@@ -85,7 +92,7 @@ class GenerationTests(unittest.TestCase):
             (root / brand["theme_tokens"]).write_text(json.dumps(tokens))
             (root / "branding/brand.json").write_text(json.dumps(brand))
             with mock.patch.object(generator, "ROOT", root), mock.patch.object(generator.subprocess, "run") as raster:
-                generator.generate(raster=True)
+                generator.generate(raster=True, environ={})
             swift = (root / "SpaceWorks/Generated/Brand.swift").read_text()
             self.assertIn('appName: String = "Workshop"', swift)
             self.assertIn('privacyURL: String? = "https://xn--bcher-kva.example/privacy?lang=en#retention"', swift)
@@ -120,16 +127,39 @@ class GenerationTests(unittest.TestCase):
                 self.assertEqual(output.read_text(), "keep existing build")
                 self.assertFalse((root / "SpaceWorks/Generated").exists())
 
-    def test_upstream_master_palette_remains_the_original_brand_baseline(self):
+    def test_design_kit_palette_is_the_0_12_0_brand_baseline(self):
         # This immutable upstream check is deliberately separate from configured output.
         baseline = json.loads((ROOT / "design/tokens/tokens.json").read_text())
         self.assertEqual(baseline["light"]["bg"], "#FFF4E8")
-        self.assertEqual(baseline["dark"]["bg"], "#142C2A")
+        self.assertEqual(baseline["dark"]["bg"], "#000000", "Design-Kit 0.12.0 solid-black dark palette")
+        self.assertEqual(baseline["dark"]["surface"], "#0B0B0B")
+        self.assertEqual(baseline["light"]["scrim"], "#142C2A")
+        self.assertEqual(baseline["dark"]["scrim"], "#000000")
+
+    def test_generated_dark_palette_scrim_and_aurora_card_follow_the_kit(self):
+        def components(name):
+            colors = json.loads((ROOT / f"SpaceWorks/Assets.xcassets/{name}.colorset/Contents.json").read_text())["colors"]
+            return ["#" + "".join(entry["color"]["components"][key][2:] for key in ["red", "green", "blue"]) for entry in colors]
+        self.assertEqual(components("bg"), ["#FFF4E8", "#000000"])
+        self.assertEqual(components("surface"), ["#F6ECE0", "#0B0B0B"])
+        self.assertEqual(components("scrim"), ["#142C2A", "#000000"])
+        self.assertEqual(components("card-aurora-background"), ["#FFF4E8", "#142C2A"])
+        self.assertEqual(components("card-aurora-label"), ["#006E63", "#DFFF8F"])
+        theme = (ROOT / "SpaceWorks/Generated/Theme.swift").read_text()
+        self.assertIn('static let swScrim = Color("scrim")', theme)
+        self.assertIn('static let swCardAuroraRibbon = Color("card-aurora-ribbon")', theme)
+
+    def test_mascot_ships_the_light_pose_and_the_dark_mode_die_cut_variant(self):
+        imageset = ROOT / "SpaceWorks/Assets.xcassets/Patch.imageset"
+        self.assertEqual((imageset / "light.png").read_bytes(), (ROOT / "design/mascot/original/patch.png").read_bytes())
+        self.assertEqual((imageset / "dark.png").read_bytes(), (ROOT / "design/mascot/dark/patch.png").read_bytes())
+        images = json.loads((imageset / "Contents.json").read_text())["images"]
+        self.assertEqual(images[1]["appearances"], [{"appearance": "luminosity", "value": "dark"}])
 
     def test_theme_and_brand_generation_are_deterministic(self):
         paths = [ROOT / "SpaceWorks/Generated/Theme.swift", ROOT / "SpaceWorks/Generated/Brand.swift", ROOT / "Brand.xcconfig"]
         before = [p.read_bytes() for p in paths]
-        generator.generate(raster=False)
+        generator.generate(raster=False, environ={})
         self.assertEqual(before, [p.read_bytes() for p in paths])
 
     def test_key_ui_text_pairs_meet_contrast_floor(self):
@@ -166,6 +196,34 @@ class GenerationTests(unittest.TestCase):
             real = plistlib.loads((ROOT / f"SpaceWorks/Generated/Attestation-{configuration}.entitlements").read_bytes())
             self.assertNotIn("application-identifier", real)
             self.assertNotIn("keychain-access-groups", real)
+
+    def test_telemetry_block_is_optional_public_and_env_overridable(self):
+        brand = {"telemetry": {"sentry_dsn": None, "sentry_traces_sample_rate": 0.1, "posthog_host": "https://eu.i.posthog.com"}}
+        self.assertEqual(generator.telemetry_config(brand, {}), {"sentry_traces_sample_rate": 0.1, "posthog_host": "https://eu.i.posthog.com", "debug_override": False})
+        self.assertEqual(generator.telemetry_config({}, {}), {"debug_override": False})
+        env = {"SPACEWORKS_SENTRY_DSN": "https://0123456789abcdef0123456789abcdef@o1.ingest.sentry.io/42",
+               "SPACEWORKS_POSTHOG_API_KEY": "phc_testkey1234567890", "SPACEWORKS_CLARITY_PROJECT_ID": "abc123xyz",
+               "SPACEWORKS_SENTRY_TRACES_SAMPLE_RATE": "0.25", "SPACEWORKS_TELEMETRY_DEBUG": "1"}
+        config = generator.telemetry_config(brand, env)
+        self.assertEqual(config["sentry_dsn"], env["SPACEWORKS_SENTRY_DSN"])
+        self.assertEqual(config["posthog_api_key"], "phc_testkey1234567890")
+        self.assertEqual(config["clarity_project_id"], "abc123xyz")
+        self.assertEqual(config["sentry_traces_sample_rate"], 0.25)
+        self.assertIs(config["debug_override"], True)
+        for invalid in [{"unknown": 1}, {"sentry_dsn": "https://key:secret@o1.ingest.sentry.io/42"}, {"posthog_api_key": "phx_personalsecretkey"},
+                        {"posthog_host": "http://eu.i.posthog.com"}, {"sentry_traces_sample_rate": 2}, {"sentry_traces_sample_rate": True}]:
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                generator.telemetry_config({"telemetry": invalid}, {})
+
+    def test_info_plist_carries_telemetry_and_disables_firebase_collection_and_ad_ids(self):
+        for configuration in ("Debug", "Release"):
+            info = plistlib.loads((ROOT / f"SpaceWorks/Generated/Info-{configuration}.plist").read_bytes())
+            self.assertIn("debug_override", info["SpaceWorksTelemetry"])
+            for key in ["FIREBASE_ANALYTICS_COLLECTION_ENABLED", "GOOGLE_ANALYTICS_ADID_COLLECTION_ENABLED", "GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED",
+                        "GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS", "FirebaseAutomaticScreenReportingEnabled"]:
+                self.assertIs(info[key], False, key)
+            self.assertNotIn("NSUserTrackingUsageDescription", info, "No App Tracking Transparency prompt")
+        self.assertIn("SpaceWorks/GoogleService-Info.plist", (ROOT / ".gitignore").read_text().splitlines())
 
 
 if __name__ == "__main__":

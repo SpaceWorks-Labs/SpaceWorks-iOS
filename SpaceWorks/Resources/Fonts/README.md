@@ -1,13 +1,33 @@
 # Native Space Works fonts
 
-Gilroy Regular, Medium, Semibold and Bold are converted from the owner's supplied Design WOFF assets for app content, with Dynamic Type and explicit heavier faces for Bold Text. The owner requested these assets in the native apps; their inclusion remains subject to the applicable Gilroy license and does not grant an open-source redistribution license. Upstream names/outlines/metrics are preserved; the native container checksum necessarily changes. `Gilroy-provenance.json` records all source/native hashes. Every upstream OS/2 weight field is400, so the app selects the actual supplied PostScript face explicitly rather than relying on synthetic weight lookup.
+The app follows the 0.12.0 Design-Kit typography (`design/fonts/README.md`, `design/docs/ui-brand-spec.md`)
+with **open-licensed fonts only** (owner decision 2026-11-13):
 
-Unbounded remains one short accent phrase per layout. Native navigation titles and system activities retain platform typography. IDs and secrets use Gilroy Medium with tabular digits, following the owner's no-monospace-family rule. Gilroy is not substituted into the outlined logo masters.
+| Role | Face | Where |
+| --- | --- | --- |
+| Interface and body text | Outfit (variable, 400–700 used; heavier under Bold Text) | `brandFont(_:)` for every style |
+| Display headings | Outfit ExtraBold (800) | `brandFont(.largeTitle/.title/.title2, weight: .bold)` |
+| Light display text | Outfit Light (300) | `brandFont(_, weight: .light)` on display styles |
+| One short accent phrase per screen | Unbounded (variable) | `BrandTypography.accent(_:)` |
 
-`Unbounded-Variable.ttf` is the unmodified variable font outlines converted from the Design submodule's `fonts/Unbounded-Variable.woff2` container using fontTools 4.67.0 and Brotli. Its SIL Open Font License 1.1 is included alongside it; the font's family/PostScript names, glyphs and weight axis (200–900) are preserved. Conversion changes the web container into Apple's supported native TrueType container without renaming the font.
+No font file is committed. `scripts/generate.py` (via `scripts/brand_fonts.py`) decompresses the kit's
+Outfit and Unbounded WOFF2 files from the pinned `design/` submodule into `SpaceWorks/Generated/Fonts/` and
+registers them through `UIAppFonts`. WOFF2 is a compressed container: decompression restores the font's own
+tables; names, outlines and metrics are unchanged. It needs fontTools with Brotli (`brew install fonttools`,
+or `python3 -m pip install fonttools brotli`). Converted files are cached by source hash in
+`.build/font-stamp.json`, so the Xcode pre-build phase reuses them even when its Python lacks fontTools.
 
-- Source SHA-256: `0c8f2e9da9dbcff90d9e2741cf5c59be72e83d76c206cfa3b95f291416752ee4`
-- Native SHA-256: `87526b420190c9008a880bbf1780ab8c1563d55abb772a9cc6ed7e7b81306c3d`
-- Registered PostScript name: `Unbounded-Regular`
+Both fonts are variable and their named instances carry no PostScript names, so a weight is the
+registered default face (`Outfit-Thin`, `Unbounded-Regular`) plus an exact `wght` axis value
+(`BrandTypography.Face`), never an instance name. Every face keeps Dynamic Type through `UIFontMetrics`
+(SwiftUI recomputes it from the environment's text size), and Bold Text selects a heavier Outfit weight. Native navigation titles and system controls keep platform typography.
+IDs and codes use Outfit Medium with tabular digits.
 
-The original Space Works logo masters are outlined artwork and do not use this font at runtime.
+## Licences
+
+- Outfit and Unbounded: SIL Open Font License 1.1. `OFL-Outfit.txt` and `OFL-Unbounded.txt` are copied
+  from `design/fonts/LICENSES/` into the app bundle beside the fonts.
+- Gilroy is not open-licensed. The kit's Gilroy files are never converted, bundled or committed, and
+  `scripts/audit_bundle.py` fails a Release bundle that contains any Gilroy file.
+
+The Space Works logo masters are outlined artwork and do not use these fonts at runtime.

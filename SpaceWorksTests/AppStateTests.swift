@@ -108,7 +108,7 @@ final class AppStateTests: XCTestCase {
             return [r, g, b].map { Int(($0 * 255).rounded()) }
         }
         XCTAssertEqual(try color("bg", .light), [255, 244, 232])
-        XCTAssertEqual(try color("bg", .dark), [20, 44, 42])
+        XCTAssertEqual(try color("bg", .dark), [0, 0, 0], "Design-Kit 0.12.0 solid-black dark palette")
         XCTAssertEqual(try color("accent", .light), [0, 110, 99])
         XCTAssertEqual(try color("ink", .dark), [255, 244, 232])
     }

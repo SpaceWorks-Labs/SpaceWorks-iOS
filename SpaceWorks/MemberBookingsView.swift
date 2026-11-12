@@ -11,7 +11,7 @@ struct MemberBookingsView: View {
                 NavigationLink("Find a space", value: MemberRoute.spaces).frame(minHeight: 48)
                 LoadFeedback(load: state.bookingsLoad, lastUpdated: state.updated["bookings"], retryAfter: state.deadline("bookings")) { await state.loadBookings() }
                 if state.bookingsLoad == .ready && state.bookings.isEmpty {
-                    SWCard { Text("Nothing here yet.").foregroundStyle(Color.swMuted) }
+                    SWCard { SWEmptyState() }
                 }
                 ForEach(state.bookings, id: \.public_token) { row in
                     SWCard {
