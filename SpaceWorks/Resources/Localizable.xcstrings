@@ -287,6 +287,17 @@
         }
       }
     },
+    "Add a reason of up to 1,000 characters before rejecting this booking.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a reason of up to 1,000 characters before rejecting this booking."
+          }
+        }
+      }
+    },
     "Add a reason of up to 1,000 characters.": {
       "extractionState": "manual",
       "localizations": {
@@ -602,6 +613,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Assign another manager before leaving this makerspace."
+          }
+        }
+      }
+    },
+    "Authentication code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authentication code"
           }
         }
       }
@@ -1134,6 +1156,17 @@
         }
       }
     },
+    "Change printed name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change printed name"
+          }
+        }
+      }
+    },
     "Change server": {
       "extractionState": "manual",
       "localizations": {
@@ -1141,6 +1174,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Change server"
+          }
+        }
+      }
+    },
+    "Change the time": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change the time"
           }
         }
       }
@@ -1273,6 +1317,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Check your contact details and codes, then try again."
+          }
+        }
+      }
+    },
+    "Check your email": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check your email"
           }
         }
       }
@@ -1530,6 +1585,17 @@
         }
       }
     },
+    "Choose an end time after the start time.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an end time after the start time."
+          }
+        }
+      }
+    },
     "Choose an end time in the future and after the start time.": {
       "extractionState": "manual",
       "localizations": {
@@ -1603,6 +1669,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose which updates you receive in Communication preferences. Required safety messages remain available in your inbox."
+          }
+        }
+      }
+    },
+    "Choose your username": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose your username"
           }
         }
       }
@@ -1702,6 +1779,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Confirm acceptance"
+          }
+        }
+      }
+    },
+    "Confirm approval": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm approval"
           }
         }
       }
@@ -2707,6 +2795,17 @@
         }
       }
     },
+    "Email code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email code"
+          }
+        }
+      }
+    },
     "Email confirmed.": {
       "extractionState": "manual",
       "localizations": {
@@ -2769,6 +2868,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter a date as YYYY-MM-DD."
+          }
+        }
+      }
+    },
+    "Enter a name of up to 200 characters.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a name of up to 200 characters."
+          }
+        }
+      }
+    },
+    "Enter a username of up to 30 characters.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a username of up to 30 characters."
           }
         }
       }
@@ -2872,6 +2993,17 @@
         }
       }
     },
+    "Enter the makerspace's short name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the makerspace's short name."
+          }
+        }
+      }
+    },
     "Enter the phone number on the deleted account. If it can still be restored, we'll text a code.": {
       "extractionState": "manual",
       "localizations": {
@@ -2894,6 +3026,17 @@
         }
       }
     },
+    "Enter the six-digit code from your authenticator app, or a recovery code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the six-digit code from your authenticator app, or a recovery code."
+          }
+        }
+      }
+    },
     "Enter the six-digit code from your authenticator app.": {
       "extractionState": "manual",
       "localizations": {
@@ -2901,6 +3044,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enter the six-digit code from your authenticator app."
+          }
+        }
+      }
+    },
+    "Enter the six-digit code from your email.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the six-digit code from your email."
           }
         }
       }
@@ -3862,6 +4016,17 @@
         }
       }
     },
+    "Leave staff tools": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave staff tools"
+          }
+        }
+      }
+    },
     "Leaving ends your access to this makerspace. Outstanding loans or charges may need to be resolved first.": {
       "extractionState": "manual",
       "localizations": {
@@ -4232,6 +4397,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Make yourself at home."
+          }
+        }
+      }
+    },
+    "Makerspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Makerspace"
+          }
+        }
+      }
+    },
+    "Makerspace short name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Makerspace short name"
           }
         }
       }
@@ -4848,6 +5035,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open sample updates from your makerspaces. Changes stay in this preview."
+          }
+        }
+      }
+    },
+    "Open staff tools": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open staff tools"
+          }
+        }
+      }
+    },
+    "Open staff tools to see this.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open staff tools to see this."
           }
         }
       }
@@ -5644,6 +5853,17 @@
         }
       }
     },
+    "Printed name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Printed name"
+          }
+        }
+      }
+    },
     "Prints awaiting collection": {
       "extractionState": "manual",
       "localizations": {
@@ -6381,6 +6601,17 @@
         }
       }
     },
+    "Reschedule booking": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reschedule booking"
+          }
+        }
+      }
+    },
     "Reset helpful tips": {
       "extractionState": "manual",
       "localizations": {
@@ -6744,6 +6975,17 @@
         }
       }
     },
+    "Save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
     "Save new recovery codes before continuing. Some security changes end your sessions and require a fresh sign-in. A verified phone and an editable contact phone serve different purposes.": {
       "extractionState": "manual",
       "localizations": {
@@ -6905,6 +7147,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "See your charges, payment status, and issued documents."
+          }
+        }
+      }
+    },
+    "Send a new code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send a new code"
           }
         }
       }
@@ -7316,6 +7569,17 @@
         }
       }
     },
+    "Staff access ended. Open staff tools again to continue.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staff access ended. Open staff tools again to continue."
+          }
+        }
+      }
+    },
     "Staff data preview": {
       "extractionState": "manual",
       "localizations": {
@@ -7345,6 +7609,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Staff tools"
+          }
+        }
+      }
+    },
+    "Staff tools are open for this makerspace.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staff tools are open for this makerspace."
+          }
+        }
+      }
+    },
+    "Staff tools need a separate staff sign-in for one makerspace, confirmed with your authenticator. Your member account stays signed in.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staff tools need a separate staff sign-in for one makerspace, confirmed with your authenticator. Your member account stays signed in."
+          }
+        }
+      }
+    },
+    "Staff tools need an authenticator. Add this account to your authenticator app, then enter its six-digit code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staff tools need an authenticator. Add this account to your authenticator app, then enter its six-digit code."
           }
         }
       }
@@ -7459,6 +7756,17 @@
         }
       }
     },
+    "Tell the member why. They will see this reason.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tell the member why. They will see this reason."
+          }
+        }
+      }
+    },
     "Tell your makerspace about your project": {
       "extractionState": "manual",
       "localizations": {
@@ -7554,6 +7862,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "That password didn't work. Try again."
+          }
+        }
+      }
+    },
+    "That username can't be used. Try letters and numbers.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That username can't be used. Try letters and numbers."
+          }
+        }
+      }
+    },
+    "That username is reserved.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That username is reserved."
+          }
+        }
+      }
+    },
+    "That username is taken.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That username is taken."
+          }
+        }
+      }
+    },
+    "That username isn't available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That username isn't available."
           }
         }
       }
@@ -7664,6 +8016,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "The server returned an invalid next page."
+          }
+        }
+      }
+    },
+    "The server will check the new time before changing your booking.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The server will check the new time before changing your booking."
           }
         }
       }
@@ -7976,6 +8339,28 @@
         }
       }
     },
+    "This is the name printed on your membership card.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the name printed on your membership card."
+          }
+        }
+      }
+    },
+    "This isn't available here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This isn't available here."
+          }
+        }
+      }
+    },
     "This item is no longer available.": {
       "extractionState": "manual",
       "localizations": {
@@ -8207,6 +8592,17 @@
         }
       }
     },
+    "This server did not provide a staff session. Contact your makerspace.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This server did not provide a staff session. Contact your makerspace."
+          }
+        }
+      }
+    },
     "This session": {
       "extractionState": "manual",
       "localizations": {
@@ -8214,6 +8610,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "This session"
+          }
+        }
+      }
+    },
+    "This sign-in looks new, so we emailed you a six-digit code. Enter it to finish signing in.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This sign-in looks new, so we emailed you a six-digit code. Enter it to finish signing in."
           }
         }
       }
@@ -8856,6 +9263,17 @@
         }
       }
     },
+    "Username": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Username"
+          }
+        }
+      }
+    },
     "Verification code": {
       "extractionState": "manual",
       "localizations": {
@@ -9105,6 +9523,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Warranty expiring"
+          }
+        }
+      }
+    },
+    "We sent a new code to your email.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We sent a new code to your email."
           }
         }
       }
@@ -9589,6 +10018,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your sign-in expired. Try again."
+          }
+        }
+      }
+    },
+    "Your username is how people find you. Pick one to keep using your makerspace.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your username is how people find you. Pick one to keep using your makerspace."
           }
         }
       }

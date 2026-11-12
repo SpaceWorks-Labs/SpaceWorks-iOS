@@ -22,7 +22,7 @@ private final class SeenPaths: @unchecked Sendable {
         let min = minimum.map { "\"\($0)\"" } ?? "null"
         let googleValue = google.map { #"{"android_client_id":"","ios_client_id":"\#($0)"}"# } ?? "null"
         let appleValue = apple ? #"{"enabled":true}"# : "null"
-        return #"{"email_enabled":false,"public_image_max_bytes":10485760,"password_login":{"member":true},"native":{"min_app_version":{"android":null,"ios":\#(min)},"providers":{"password":\#(password),"phone":\#(phone),"google":\#(googleValue),"apple":\#(appleValue),"oidc":[\#(oidc)]}}}"#
+        return #"{"email_enabled":false,"public_image_max_bytes":10485760,"password_login":{"member":true},"# + DebugAuthFixtures.configBase + #","native":{"app_display_name":"Space Works","app_identity":{"android":null,"ios":null},"min_app_version":{"android":null,"ios":\#(min)},"providers":{"password":\#(password),"phone":\#(phone),"google":\#(googleValue),"apple":\#(appleValue),"oidc":[\#(oidc)]}}}"#
     }
     private func state(storage: MemoryTokens = MemoryTokens(), version: String = "1.4.0", seen: SeenPaths = SeenPaths(),
                        handler: @escaping (URLRequest) throws -> (Int, String)) -> AuthState {
@@ -192,8 +192,9 @@ private final class SeenPaths: @unchecked Sendable {
         XCTAssertLessThanOrEqual(phone.resendAfter, clock, "A new code can be requested immediately")
     }
 
-    func testStaffToolsRequireANativeStaffSessionAuthority() async {
-        for (authority, expected) in [("member", false), ("native_staff", true), ("staff", false)] {
+    /// 0.12.0: staff tools open only on the separate step-up grant (StaffGrantTests), never on the member session.
+    func testStaffToolsNeedTheStepUpGrantWhateverTheMemberSessionSays() async {
+        for (authority, expected) in [("member", false), ("native_staff", false), ("staff", false)] {
             let auth = state(storage: MemoryTokens(TokenPair(access: "test-access", refresh: "test-refresh"))) { request in
                 self.common(request, user: DebugAuthFixtures.user(memberships: [DebugAuthFixtures.membership], authority: authority)) ?? (500, "{}")
             }
@@ -229,7 +230,7 @@ private final class SeenPaths: @unchecked Sendable {
             switch (request.httpMethod ?? "", request.url!.path) {
             case ("GET", "/api/v1/auth/account/deletion"):
                 return (200, #"{"deletable":true,"restorable":true,"restore_reason":"","blockers":[],"reauth":{"required":true,"methods":["password"]}}"#)
-            case ("GET", "/api/v1/auth/reauth"): return (200, #"{"verified":false,"password_available":true,"mfa_enabled":false,"providers":[]}"#)
+            case ("GET", "/api/v1/auth/reauth"): return (200, #"{"verified":false,"password_available":true,"passkey_available":false,"mfa_enabled":false,"providers":[]}"#)
             case ("POST", "/api/v1/auth/reauth"): return (200, #"{"verified":true,"expires_in":600}"#)
             case ("POST", "/api/v1/auth/account/deletion"): return (202, #"{"deleted_at":"2026-10-18T10:00:00Z","purge_after":"2027-01-16T10:00:00Z"}"#)
             default: XCTFail("Unexpected API call: \(request.url!)"); return (500, "{}")

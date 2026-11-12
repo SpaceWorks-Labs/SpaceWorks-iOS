@@ -84,6 +84,14 @@ final class NativeAuthFlowTests: XCTestCase {
     func testNativeStaffSessionOpensTheLiveStaffQueue() {
         let app = launch(["--native-staff"])
         signIn(app); openProfile(app)
+        // 0.12.0: a member grant never carries staff authority; step up to a staff grant first.
+        let stepUp = app.buttons["staff-step-up"]
+        XCTAssertTrue(stepUp.waitForExistence(timeout: 10)); NativeUIActions.tap(stepUp, in: app)
+        let next = app.buttons["staff-step-up-continue"]
+        XCTAssertTrue(next.waitForExistence(timeout: 10)); NativeUIActions.tap(next, in: app)
+        let code = app.textFields["staff-mfa-code"]
+        XCTAssertTrue(code.waitForExistence(timeout: 10)); NativeUIActions.tap(code, in: app); code.typeText("123456")
+        NativeUIActions.tap(app.buttons["staff-verify"], in: app)
         let tools = app.buttons["staff-tools"]
         XCTAssertTrue(tools.waitForExistence(timeout: 10))
         NativeUIActions.tap(tools, in: app)

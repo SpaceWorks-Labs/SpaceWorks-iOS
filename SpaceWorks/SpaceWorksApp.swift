@@ -27,7 +27,9 @@ struct SpaceWorksApp: App {
             } else if !ProcessInfo.processInfo.arguments.contains("--introduction") {
                 UserDefaults.standard.set(true, forKey: "introduction-complete")
             }
-            if let origin = try? ServerOrigin("https://ui-test.spaceworks.invalid") { try? TokenVault(origin: origin).store(nil) }
+            if let origin = try? ServerOrigin("https://ui-test.spaceworks.invalid") {
+                try? TokenVault(origin: origin).store(nil); try? StaffGrantVault(origin: origin).store(nil); try? DeviceTrustVault(origin: origin).store(nil)
+            }
         }
         #endif
     }
@@ -90,15 +92,19 @@ final class PreviewHealthProtocol: URLProtocol {
                     : #"{"deletable":true,"restorable":true,"restore_reason":"","blockers":[],"reauth":{"required":true,"methods":["password"]}}"#
             case "/api/v1/auth/reauth":
                 body = request.httpMethod == "POST" ? #"{"verified":true,"expires_in":600}"#
-                    : #"{"verified":false,"password_available":true,"mfa_enabled":false,"providers":[]}"#
+                    : #"{"verified":false,"password_available":true,"passkey_available":false,"mfa_enabled":false,"providers":[]}"#
             case "/api/v1/bootstrap": body = DebugMemberFixtures.bootstrap
             case "/api/v1/auth/device/attestation-challenge": body = #"{"challenge":"fresh-test-challenge","expires_in":120}"#
             case "/api/v1/auth/device/login": body = arguments.contains("--mfa") ? DebugAuthFixtures.mfa : DebugAuthFixtures.tokens
+            case "/api/v1/auth/device/staff-grant": body = DebugAuthFixtures.mfa.replacingOccurrences(of: "test-mfa-challenge", with: "test-staff-challenge")
             case "/api/v1/auth/me":
-                body = arguments.contains("--native-staff") ? DebugAuthFixtures.staffUser
+                let staffBearer = request.value(forHTTPHeaderField: "Authorization") == "Bearer staff-access"
+                body = arguments.contains("--native-staff") ? (staffBearer ? DebugAuthFixtures.staffGrantUser : DebugAuthFixtures.staffPersonUser)
                     : arguments.contains("--temporary-password") ? DebugAuthFixtures.user.replacingOccurrences(of: "\"must_change_password\":false", with: "\"must_change_password\":true") : DebugAuthFixtures.user
             case "/api/v1/admin/makerspace/7/pending-requests":
                 body = #"{"count":1,"next":null,"previous":null,"results":["# + DebugStaffFixtures.request + "]}"
+            case "/api/v1/auth/mfa/verify" where PreviewHealthProtocol.staffChallenge(request):
+                body = "{\"access\":\"staff-access\",\"refresh\":\"staff-refresh\",\"device_grant\":\(DebugAuthFixtures.staffGrant),\"surface\":\"member\",\"user\":\(DebugAuthFixtures.staffGrantUser)}"
             case "/api/v1/auth/mfa/verify": body = "{\"access\":\"test-access\",\"refresh\":\"test-refresh\",\"device_grant\":\(DebugAuthFixtures.grant),\"surface\":\"member\",\"user\":\(DebugAuthFixtures.user)}"
             case "/api/v1/auth/device/logout": body = #"{"detail":"Signed out."}"#
             case "/api/v1/auth/change-password": body = #"{"detail":"Password updated."}"#
@@ -113,6 +119,16 @@ final class PreviewHealthProtocol: URLProtocol {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+    /// The staff step-up's MFA challenge (the body travels as a stream through URLProtocol).
+    static func staffChallenge(_ request: URLRequest) -> Bool {
+        var data = request.httpBody ?? Data()
+        if data.isEmpty, let stream = request.httpBodyStream {
+            stream.open(); defer { stream.close() }
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable { let count = stream.read(&buffer, maxLength: buffer.count); if count <= 0 { break }; data.append(contentsOf: buffer.prefix(count)) }
+        }
+        return String(decoding: data, as: UTF8.self).contains("test-staff-challenge")
+    }
 }
 
 /// Test-only server state, separated from the interactive demo and absent from Release.

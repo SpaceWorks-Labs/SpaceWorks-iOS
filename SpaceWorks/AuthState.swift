@@ -4,7 +4,7 @@ import SpaceWorksAPI
 
 @MainActor @Observable
 final class AuthState {
-    enum Stage: Equatable { case restoring, updateRequired, signIn, webConsole, mfa, recoveryCodes, passwordChange, securityCompletion, signedIn }
+    enum Stage: Equatable { case restoring, updateRequired, signIn, webConsole, mfa, recoveryCodes, passwordChange, chooseUsername, securityCompletion, signedIn }
     private(set) var stage: Stage = .restoring
     private(set) var feedback: NativeFeedbackEvent?
     var username = ""
@@ -22,7 +22,14 @@ final class AuthState {
     private var locallyLeftMemberships = Set<Int>()
     private(set) var selectedID: Int?
     private(set) var configuration: Components.Schemas.PublicConfig?
+    /// The minimum a 426 `native_app_update_required` enforced (may differ from `/config`, backend gap B-1).
+    private(set) var enforcedMinimum: String?
+    /// Unusual-sign-in email codes left to resend for the current challenge, when the server said.
+    private(set) var loginCodeResendsLeft: Int?
+    private(set) var loginCodeNotice: String?
     let service: SpaceWorksService
+    /// The staff step-up grant, coexisting with this member session.
+    let staff: StaffAccessState
     private let attest: @Sendable (String) async throws -> Data
     private let settings: UserDefaults
     private let appVersion: String
@@ -48,9 +55,15 @@ final class AuthState {
     private let notificationOwnerID = UUID()
     private static var notificationOwner: UUID?
 
+    /// Injected token storage (tests, previews) keeps the staff grant and remembered device in memory
+    /// unless their own storage is passed; the production path keeps all three in Keychain.
     init(origin: ServerOrigin, session: URLSession = DeploymentSession.make(), settings: UserDefaults = .standard,
-         storage: (any TokenStorage)? = nil, appVersion: String = AppVersion.current,
+         storage: (any TokenStorage)? = nil, staffStorage: (any StaffGrantStorage)? = nil,
+         trustStorage: (any DeviceTrustStorage)? = nil, appVersion: String = AppVersion.current,
          attest: @escaping @Sendable (String) async throws -> Data = { try await NativeAttestor.attest($0) }) {
+        let injected = storage != nil
+        let staffStorage = staffStorage ?? (injected ? MemoryStaffGrantStorage() : StaffGrantVault(origin: origin))
+        let trustStorage = trustStorage ?? (injected ? MemoryDeviceTrustStorage() : DeviceTrustVault(origin: origin))
         let storage = storage ?? TokenVault(origin: origin)
         self.storage = storage
         self.origin = origin
@@ -61,12 +74,21 @@ final class AuthState {
         var pair: TokenPair?
         var storageError: String?
         do { pair = try storage.load() } catch { storageError = APIError.display(error) }
-        service = SpaceWorksService(origin: origin, session: session, initialTokens: pair, persist: { try storage.store($0) })
+        service = SpaceWorksService(origin: origin, session: session, initialTokens: pair, persist: { try storage.store($0) },
+                                    appVersion: appVersion, deviceTrust: trustStorage, staffStorage: staffStorage)
+        staff = StaffAccessState(service: service, attest: attest)
         error = storageError
+        staff.onUpdateRequired = { [weak self] failure in self?.updateRequiredByServer(failure) }
+        service.signals.observe { [weak self] signal in
+            Task { @MainActor in
+                guard case .updateRequired(let minimum) = signal else { return }
+                self?.updateRequiredByServer(APIError(status: 426, code: "native_app_update_required", detail: "", minimumVersion: minimum))
+            }
+        }
     }
     var memberships: [Components.Schemas.AuthMembership] {
         // Organization-derived authority is excluded by the mobile scope. /me supplies active memberships.
-        user?.makerspaces.filter { $0.source == .membership && !locallyLeftMemberships.contains($0.id) } ?? []
+        user?.makerspaces.filter { $0.source == "membership" && !locallyLeftMemberships.contains($0.id) } ?? []
     }
     var selectedMembership: Components.Schemas.AuthMembership? { memberships.first { $0.id == selectedID } }
     var displayName: String { user?.display_name.isEmpty == false ? user!.display_name : user?.username ?? "" }
@@ -87,7 +109,7 @@ final class AuthState {
         configuration?.native?.providers.oidc.filter { NativeOIDCClient.slug(fromKey: $0.key) != nil && !$0.client_id.isEmpty } ?? []
     }
     var hasProviders: Bool { googleClientID != nil || appleEnabled || !organizationProviders.isEmpty || phoneEnabled }
-    var minimumVersion: String? { configuration?.native?.min_app_version.ios ?? nil }
+    var minimumVersion: String? { enforcedMinimum ?? configuration?.native?.min_app_version.ios ?? nil }
     var updateRequired: Bool { AppVersion.isBelow(appVersion, minimum: minimumVersion) }
     var signupEnabled: Bool { configuration != nil && configFlag("member_accounts") && configFlag("self_registration") }
     private func configFlag(_ key: String) -> Bool {
@@ -99,12 +121,28 @@ final class AuthState {
     }
     /// Staff tools require a native staff session; phone and member sessions never receive them.
     /// Each tool is additionally gated by the selected membership's server-supplied actions.
-    var staffToolsAvailable: Bool { stage == .signedIn && user?.session_authority == "native_staff" }
+    var staffToolsAvailable: Bool { stage == .signedIn && selectedID.map { staff.available(for: $0) } == true }
+    /// The person holds a staff role somewhere, so the app offers the staff step-up (PRD §7 item 10).
+    var canOfferStaffStepUp: Bool { stage == .signedIn && user?.has_staff_role == true }
+    /// An unusual-sign-in challenge (`purpose: "risk"`) is answered with an emailed code, not an authenticator.
+    var emailCodeChallenge: Bool {
+        guard let mfa else { return false }
+        if mfa.purpose?.value1 == "risk" { return true }
+        let factors = mfa.factors ?? []
+        return factors.contains("email_code") && !factors.contains("totp") && !factors.contains("recovery")
+    }
     private var selectionKey: String { "makerspace-selection.\(serverScope).\(user?.id ?? 0)" }
     func retryRestore() async {
         guard !busy else { return }
         busy = true; defer { busy = false }
-        restored = false; error = nil; await restore()
+        restored = false; error = nil; enforcedMinimum = nil; await restore()
+    }
+    /// 426 from login, a step-up or refresh: show the update screen. Nothing was rotated, so stored
+    /// credentials stay and an updated app resumes the session.
+    func updateRequiredByServer(_ failure: APIError) {
+        enforcedMinimum = failure.minimumVersion ?? enforcedMinimum
+        mfa = nil; mfaExpires = nil; enrollment = nil; code = ""; password = ""
+        error = nil; stage = .updateRequired
     }
     func accountForm(_ step: AccountAccessState.Step) -> AccountAccessState {
         let service = service
@@ -165,8 +203,10 @@ final class AuthState {
             if updateRequired { stage = .updateRequired; return }
             guard await service.refresh.current() != nil else { stage = .signIn; return }
             try await loadIdentity()
+            await staff.refresh()
         } catch {
             guard !(error is CancellationError) else { return }
+            if APIError.isUpdateRequired(error), let failure = APIError.apiError(error) { updateRequiredByServer(failure); return }
             self.error = APIError.display(error)
             if isUnauthorized(error) { await invalidateSession(message: APIError.display(error)) }
             stage = .signIn
@@ -190,6 +230,7 @@ final class AuthState {
                 challenge: challenge.challenge, attestationJSON: proof)
             switch result {
             case .DeviceTokenResponse(let tokens):
+                service.deviceTrust.remember(tokens.device_trust)
                 try await accept(TokenPair(access: tokens.access, refresh: tokens.refresh))
                 await authenticationFeedback(generation: feedbackGeneration)
             case .MFAChallengeResponse(let challenge):
@@ -214,9 +255,16 @@ final class AuthState {
             guard Date() < expires else { throw expiredSignIn }
             let result = try await service.socialSignIn(provider: provider, idToken: provided.idToken, nonce: nonce.nonce,
                 challenge: challenge.challenge, attestationJSON: proof, authorizationCode: provided.authorizationCode, appleName: provided.appleName)
-            guard let pair = NativeDeviceCompletion.tokens(access: result.access, refresh: result.refresh, grant: result.device_grant) else { throw missingDeviceSession }
-            try await accept(pair)
-            await authenticationFeedback(generation: feedbackGeneration)
+            switch result {
+            case .SocialLoginResponse(let tokens):
+                guard let pair = NativeDeviceCompletion.tokens(access: tokens.access, refresh: tokens.refresh, grant: tokens.device_grant) else { throw missingDeviceSession }
+                service.deviceTrust.remember(tokens.device_trust)
+                try await accept(pair)
+                await authenticationFeedback(generation: feedbackGeneration)
+            case .MFAChallengeResponse(let challenge):
+                // 0.12.0: a person MFA is mandatory for (any staff role) finishes at auth/mfa/verify.
+                try await beginMFA(challenge, generation: feedbackGeneration)
+            }
         } catch { refuse(error, generation: feedbackGeneration) }
     }
 
@@ -258,6 +306,7 @@ final class AuthState {
             let proof = try await attest(challenge)
             switch try await service.phoneSignInConfirm(phone: phone, code: code, challenge: challenge, attestationJSON: proof) {
             case .DeviceTokenResponse(let tokens):
+                service.deviceTrust.remember(tokens.device_trust)
                 try await accept(TokenPair(access: tokens.access, refresh: tokens.refresh))
                 await authenticationFeedback(generation: feedbackGeneration)
             case .MFAChallengeResponse(let challenge):
@@ -266,14 +315,14 @@ final class AuthState {
                 try await complete(completed, generation: feedbackGeneration)
             }
         } catch {
-            if APIError.code(error) == "device_superadmin_not_supported" { refuse(error, generation: feedbackGeneration); return }
+            if APIError.code(error) == "device_superadmin_not_supported" || APIError.isUpdateRequired(error) { refuse(error, generation: feedbackGeneration); return }
             if identityGeneration == feedbackGeneration, !APIError.isCancellation(error) { feedback = .init(.error) }
             throw error
         }
     }
 
     private func beginMFA(_ challenge: Components.Schemas.MFAChallengeResponse, generation: Int) async throws {
-        mfa = challenge
+        mfa = challenge; loginCodeResendsLeft = nil; loginCodeNotice = nil
         mfaExpires = Date().addingTimeInterval(TimeInterval(challenge.expires_in))
         if challenge.enrollment_required { enrollment = try await service.enroll(challenge: challenge.challenge) }
         stage = .mfa
@@ -285,6 +334,7 @@ final class AuthState {
             throw missingDeviceSession
         }
         recoveryCodes = result.recovery_codes ?? []
+        service.deviceTrust.remember(result.device_trust)
         try await accept(pair)
         if !recoveryCodes.isEmpty { stage = .recoveryCodes }
         await authenticationFeedback(generation: generation)
@@ -297,6 +347,11 @@ final class AuthState {
 
     /// Superadmin accounts are refused on devices; every other failure stays on its current screen.
     private func refuse(_ failure: Error, generation: Int) {
+        if APIError.isUpdateRequired(failure), let error = APIError.apiError(failure) {
+            updateRequiredByServer(error)
+            if identityGeneration == generation { feedback = .init(.error) }
+            return
+        }
         if APIError.code(failure) == "device_superadmin_not_supported" {
             mfa = nil; mfaExpires = nil; enrollment = nil; code = ""; password = ""; error = nil
             stage = .webConsole
@@ -312,19 +367,58 @@ final class AuthState {
         guard (mfaExpires ?? .distantPast) > Date() else {
             backToSignIn(); error = String(localized: "Your sign-in expired. Try again."); return
         }
-        guard code.count >= 6 else { error = String(localized: "Enter your authenticator or recovery code."); feedback = .init(.error); return }
+        guard code.count >= 6 else {
+            error = emailCodeChallenge ? String(localized: "Enter the six-digit code from your email.") : String(localized: "Enter your authenticator or recovery code.")
+            feedback = .init(.error); return
+        }
         let feedbackGeneration = identityGeneration
         busy = true; error = nil
         defer { busy = false; code = "" }
         do {
-            let result = try await service.verify(challenge: mfa.challenge, code: code, enrolling: mfa.enrollment_required)
+            let result = try await service.verify(challenge: mfa.challenge, code: code, enrolling: mfa.enrollment_required, emailCode: emailCodeChallenge)
             try await complete(result, generation: feedbackGeneration)
         } catch { refuse(error, generation: feedbackGeneration) }
     }
-    func confirmRecoveryCodes() { recoveryCodes = []; stage = user?.must_change_password == true ? .passwordChange : .signedIn }
+    /// The blocking "Choose your username" step. Both routes are account-wide (no makerspace header).
+    func usernameForm() -> UsernameState? {
+        guard stage == .chooseUsername, let identity = user, let credentials = acceptedCredentials else { return nil }
+        let service = service, generation = identityGeneration, accountID = identity.id
+        return UsernameState(suggestion: identity.handle_suggestion, check: { handle in
+            try await service.withSession(expectedCredentials: credentials) { try await service.checkHandle(handle) }
+        }, claim: { [weak self] handle in
+            _ = try await service.withSession(expectedCredentials: credentials) { try await service.claimHandle(handle) }
+            await self?.usernameClaimed(accountID: accountID, generation: generation)
+        })
+    }
+    private func usernameClaimed(accountID: Int, generation: Int) async {
+        guard identityGeneration == generation, user?.id == accountID else { return }
+        do { try await loadIdentity(); feedback = .init(.success) } catch {
+            guard identityGeneration == generation else { return }
+            fail(error)
+            if isUnauthorized(error) { await invalidateSession(message: APIError.display(error)) }
+        }
+    }
+    /// Email a new unusual-sign-in code for the same challenge (the server allows two resends).
+    func resendLoginCode() async {
+        guard !busy, let mfa, emailCodeChallenge, (retryAfter ?? .distantPast) <= Date() else { return }
+        busy = true; error = nil; loginCodeNotice = nil
+        defer { busy = false }
+        do {
+            let sent = try await service.resendLoginCode(challenge: mfa.challenge)
+            guard self.mfa?.challenge == mfa.challenge else { return }
+            loginCodeResendsLeft = sent.resends_left
+            mfaExpires = Date().addingTimeInterval(TimeInterval(sent.expires_in))
+            loginCodeNotice = String(localized: "We sent a new code to your email.")
+        } catch { fail(error); feedback = .init(.error) }
+    }
+    func confirmRecoveryCodes() { recoveryCodes = []; stage = user.map(nextStage) ?? .signedIn }
+    /// Temporary password first, then the blocking username step, then the app.
+    private func nextStage(_ identity: Components.Schemas.AuthUserPayload) -> Stage {
+        identity.must_change_password ? .passwordChange : identity.handle_required == true ? .chooseUsername : .signedIn
+    }
     func backToSignIn() {
         guard !busy else { return }
-        mfa = nil; mfaExpires = nil; enrollment = nil; code = ""; error = nil; stage = .signIn
+        mfa = nil; mfaExpires = nil; enrollment = nil; code = ""; error = nil; loginCodeNotice = nil; loginCodeResendsLeft = nil; stage = .signIn
     }
     func select(_ id: Int) async {
         do {
@@ -340,7 +434,7 @@ final class AuthState {
         guard stage == .signedIn, !busy, (retryAfter ?? .distantPast) <= Date() else { return }
         let generation = identityGeneration
         defer { if let notifications { Task { await notifications.refresh() } } }
-        do { try await refreshedIdentity() } catch {
+        do { try await refreshedIdentity(); await staff.refresh() } catch {
             guard generation == identityGeneration else { return }
             fail(error)
             let hasNoCredentials = await service.refresh.current() == nil
@@ -353,6 +447,7 @@ final class AuthState {
         let cleanup = detachNotificationCleanup()
         clearLocalIdentity()
         await cleanup.state?.stop(authorizedDirectMembershipIDs: cleanup.ids)
+        await staff.end()
         try? await service.refresh.install(nil)
         try? await service.makerspace.select(nil, activeMemberships: [])
         error = message
@@ -364,6 +459,8 @@ final class AuthState {
         let cleanup = detachNotificationCleanup()
         clearLocalIdentity()
         await cleanup.state?.stop(authorizedDirectMembershipIDs: cleanup.ids)
+        // Each grant signs out on its own; the staff grant first, while the member grant is still live.
+        await staff.end()
         var revocationFailed = false
         do { try await service.signOut() } catch { revocationFailed = true }
         do {
@@ -495,6 +592,8 @@ final class AuthState {
         endingSession = true
         detachNotifications()
         clearLocalIdentity()
+        // Logout-all and deletion already revoked every grant on the server, the staff grant included.
+        await staff.end(serverLogout: false)
         try? await service.refresh.install(nil)
         try? await service.makerspace.select(nil, activeMemberships: [])
         endingSession = false
@@ -563,7 +662,7 @@ final class AuthState {
             throw APIError(status: 403, code: "device_superadmin_not_supported", detail: String(localized: "Use the web console"))
         }
         identity.makerspaces.removeAll { locallyLeftMemberships.contains($0.id) }
-        let direct = identity.makerspaces.filter { $0.source == .membership }
+        let direct = identity.makerspaces.filter { $0.source == "membership" }
         let ids = Set(direct.map(\.id))
         let previous = user?.id == identity.id ? selectedID : nil
         let saved = previous ?? settings.object(forKey: "makerspace-selection.\(serverScope).\(identity.id)") as? Int
@@ -574,7 +673,7 @@ final class AuthState {
         if let pushAccountID, pushAccountID != identity.id { detachNotifications() }
         acceptedCredentials = credentials
         user = identity; selectedID = selection
-        stage = identity.must_change_password ? .passwordChange : .signedIn
+        stage = nextStage(identity)
         if stage == .signedIn { configureNotifications(accountID: identity.id, credentials: credentials) }
         let lockScope = serverScope + ".\(identity.id)"
         if appLock?.scope != lockScope { appLock = NativeAppLock(scope: lockScope, settings: settings) }

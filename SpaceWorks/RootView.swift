@@ -177,7 +177,7 @@ struct AppShell: View {
         if let membership = auth.selectedMembership, let origin = state.connectedOrigin {
             MemberWorkspace(state: state, auth: auth, origin: origin, id: membership.id, slug: membership.slug, linkRouter: linkRouter)
                 // Staff authority or action changes rebuild every scoped state from a fresh /auth/me.
-                .id("\(origin.url.absoluteString).\(auth.user?.id ?? 0).\(membership.id).\(auth.staffToolsAvailable).\(membership.actions.sorted().joined(separator: ","))")
+                .id("\(origin.url.absoluteString).\(auth.user?.id ?? 0).\(membership.id).\(auth.staffToolsAvailable).\(auth.staff.revision).\(membership.actions.sorted().joined(separator: ","))")
         }
     }
 }
@@ -213,13 +213,18 @@ private struct MemberWorkspace: View {
         account?.openDeletionFix = { [linkRouter] link in linkRouter.receive(link) }
         _account = State(initialValue: account)
         // Native staff authority plus at least one staff action of this membership; the server still enforces each call.
+        // Staff tools travel on the staff step-up grant: its credentials, its /auth/me actions for this space.
+        let staffAccess = auth.staff
+        let staffRefused: @Sendable (String) async -> Void = { [weak staffAccess] message in await staffAccess?.drop(message: message) }
+        let staffChanged: @Sendable () async -> Void = { [weak staffAccess] in await staffAccess?.refresh() }
         _insights = State(initialValue: InsightsState(repository: LiveInsightsRepository(service: auth.service, expectedCredentials: auth.acceptedCredentials,
-            makerspaceID: id, onUnauthorized: failureHandlers.unauthorized, onForbidden: failureHandlers.forbidden)))
-        let membershipActions = Set(auth.selectedMembership?.actions ?? [])
-        _staff = State(initialValue: auth.staffToolsAvailable && auth.selectedMembership?.id == id && !membershipActions.isDisjoint(with: StaffState.toolActions)
-            ? StaffState(repository: LiveStaffRepository(service: auth.service, expectedCredentials: auth.acceptedCredentials, makerspaceID: id, origin: origin,
-                onUnauthorized: failureHandlers.unauthorized, onForbidden: failureHandlers.forbidden),
-                makerspaceID: id, actions: membershipActions, features: []) : nil)
+            makerspaceID: id, onUnauthorized: failureHandlers.unauthorized, onForbidden: failureHandlers.forbidden,
+            staffCredentials: auth.staffToolsAvailable ? staffAccess.credentials : nil, onStaffRefused: staffRefused)))
+        let staffActions = staffAccess.actions(for: id) ?? []
+        _staff = State(initialValue: auth.staffToolsAvailable && auth.selectedMembership?.id == id && !staffActions.isDisjoint(with: StaffState.toolActions)
+            ? StaffState(repository: LiveStaffRepository(service: auth.service, expectedCredentials: staffAccess.credentials, makerspaceID: id, origin: origin,
+                onUnauthorized: staffRefused, onForbidden: staffChanged),
+                makerspaceID: id, actions: staffActions, features: []) : nil)
         _payments = State(initialValue: PaymentsState(repository: LivePaymentRepository(service: auth.service, expectedCredentials: auth.acceptedCredentials, makerspaceID: id, origin: origin,
             onUnauthorized: failureHandlers.unauthorized, onForbidden: failureHandlers.forbidden)))
         _cart = State(initialValue: RequestCartState(repository: actions))
@@ -319,6 +324,7 @@ private struct MemberScreen: View {
     let insights: InsightsState
     let linkRouter: MobileLinkRouter
     @State private var accountForm: AccountAccessState?
+    @State private var stepUp = false
     @State private var replayIntro = false
     @State private var confirmSignOut = false
     @State private var confirmSignOutEverywhere = false
@@ -351,7 +357,14 @@ private struct MemberScreen: View {
                         }
                         if account != nil { NavigationLink("Account and security", value: MemberRoute.account).frame(minHeight: 48).accessibilityIdentifier("account-entry") }
                         NavigationLink("Payments", value: MemberRoute.payments).frame(minHeight: 48).accessibilityIdentifier("payments-entry")
-                        if staff != nil { NavigationLink("Staff tools", value: MemberRoute.staff).frame(minHeight: 48).accessibilityIdentifier("staff-tools") }
+                        if staff != nil {
+                            NavigationLink("Staff tools", value: MemberRoute.staff).frame(minHeight: 48).accessibilityIdentifier("staff-tools")
+                            Button("Leave staff tools") { staff?.invalidate(); Task { await auth.staff.end() } }.frame(minHeight: 48).accessibilityIdentifier("staff-leave")
+                        } else if auth.canOfferStaffStepUp {
+                            Button("Open staff tools") { auth.staff.slug = auth.selectedMembership?.slug ?? ""; stepUp = true }
+                                .frame(minHeight: 48).accessibilityIdentifier("staff-step-up")
+                        }
+                        if let message = auth.staff.error, auth.staff.step == .idle, !stepUp { SWError(message: message) }
                         if let notifications = auth.notifications {
                             NavigationLink("Notifications") { NotificationSettingsView(state: notifications) }.frame(minHeight: 48).accessibilityIdentifier("notifications-entry")
                         }
@@ -374,6 +387,7 @@ private struct MemberScreen: View {
         }.background(Color.swBg).navigationTitle(LocalizedStringKey(tab.rawValue))
         .sheet(item: $accountForm) { form in AccountAccessView(form: form) { accountForm = nil } }
         .sheet(isPresented: $replayIntro) { IntroductionView { replayIntro = false } }
+        .sheet(isPresented: $stepUp) { StaffStepUpView(staff: auth.staff) { stepUp = false } }
         .confirmationDialog("Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive) { member.invalidate(); cart.invalidate(); drafts.invalidate(); capabilities.invalidate(); navigation.invalidate(); payments.invalidate(); account?.invalidate(); staff?.invalidate(); Task { await auth.signOut() } }
             Button("Cancel", role: .cancel) {}

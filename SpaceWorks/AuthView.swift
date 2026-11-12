@@ -26,6 +26,7 @@ struct AuthRoot: View {
             case .webConsole: WebConsoleNoticeView(auth: auth)
             case .mfa, .recoveryCodes: MFAView(auth: auth)
             case .passwordChange: PasswordChangeView(auth: auth)
+            case .chooseUsername: ChooseUsernameView(auth: auth)
             case .securityCompletion:
                 AccountSecurityCompletionView(codes: auth.recoveryCodes, message: auth.securityMessage ?? "", continueToSignIn: auth.finishSecurityCompletion)
             case .signedIn:
@@ -255,6 +256,22 @@ struct MFAView: View {
                     ForEach(auth.recoveryCodes, id: \.self) { Text($0).monospacedDigit().textSelection(.enabled) }
                     Toggle("I've saved my recovery codes", isOn: $codesSaved).frame(minHeight: 48)
                     Button("Continue") { auth.confirmRecoveryCodes() }.buttonStyle(SWPrimary()).disabled(!codesSaved)
+                } else if auth.emailCodeChallenge {
+                    // Unusual sign-in (`purpose: "risk"`): an emailed six-digit code, not an authenticator.
+                    Text("Check your email").brandFont(.largeTitle, weight: .bold).accessibilityAddTraits(.isHeader)
+                    Text("This sign-in looks new, so we emailed you a six-digit code. Enter it to finish signing in.").foregroundStyle(Color.swMuted)
+                    Text("Email code").brandFont(.headline)
+                    TextField("Email code", text: $auth.code, prompt: Text("Email code").foregroundColor(Color.swMuted))
+                        .textContentType(.oneTimeCode).keyboardType(.numberPad).padding(16)
+                        .background(Color.swBg, in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.swOutline)).accessibilityIdentifier("email-code")
+                    if let notice = auth.loginCodeNotice { Text(notice).foregroundStyle(Color.swMuted).accessibilityIdentifier("email-code-notice") }
+                    if let error = auth.error { SWError(message: error) }
+                    Button(auth.busy ? "Verifying…" : "Verify") { Task { await auth.verify() } }
+                        .buttonStyle(SWPrimary()).disabled(auth.busy).accessibilityIdentifier("verify")
+                    Button("Send a new code") { Task { await auth.resendLoginCode() } }
+                        .frame(minHeight: 48).disabled(auth.busy || auth.loginCodeResendsLeft == 0).accessibilityIdentifier("resend-email-code")
+                    Button("Back to sign in") { auth.backToSignIn() }.frame(minHeight: 48).disabled(auth.busy)
                 } else {
                     Text(auth.mfa?.enrollment_required == true ? "Add extra security" : "Check your authenticator").brandFont(.largeTitle, weight: .bold)
                     if let enrollment = auth.enrollment {
