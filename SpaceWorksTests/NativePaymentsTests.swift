@@ -8,7 +8,7 @@ final class NativePaymentsTests: XCTestCase {
         for category in [UIContentSizeCategory.large, .accessibilityExtraExtraExtraLarge] {
             UITraitCollection(preferredContentSizeCategory: category).performAsCurrent {
                 let appearance = NativePayments.stripeAppearance()
-                XCTAssertEqual(appearance.font.base.fontName, "Gilroy-Regular")
+                XCTAssertEqual(appearance.font.base.familyName, "Outfit")
                 XCTAssertEqual(appearance.font.base.pointSize, UIFont.systemFontSize)
                 XCTAssertEqual(appearance.font.sizeScaleFactor, 1)
             }

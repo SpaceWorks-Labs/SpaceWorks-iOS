@@ -129,6 +129,7 @@ final class AccountDeletionState {
             let value = try await repository.preview()
             let identity = try await repository.status()
             guard active else { return }
+            if preview == nil { Telemetry.shared.track(.accountDeletionStarted) }
             preview = value; status = identity; notice = nil
             if let first = methods.first, !methods.contains(method) { method = first }
             if !value.blockers.isEmpty { stage = .blockers }

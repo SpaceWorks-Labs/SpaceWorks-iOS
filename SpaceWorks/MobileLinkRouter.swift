@@ -29,6 +29,7 @@ import SpaceWorksAPI
     func cancelIntent() { pendingNeedsInbox = false; revision += 1; pending = nil; pendingLegacy = nil; approved = nil; error = nil }
     func refuseURL() { cancelIntent(); error = String(localized: "That link can't be opened in this app.") }
     func receive(_ hint: NotificationHint) {
+        Telemetry.shared.track(.pushOpened(feature: MobileLink.notification(hint).destination.telemetryKind))
         if hint.version == 2, let path = hint.relativeLink, let legacy = MobileLink.legacy(path) {
             receive(MobileLink.Legacy(slug: legacy.slug, staffInbox: legacy.staffInbox, expectedMakerspaceID: hint.makerspaceID, destination: legacy.destination))
         } else if hint.version == 2, let path = hint.relativeLink, let destination = MobileLink.customDomain(path) {

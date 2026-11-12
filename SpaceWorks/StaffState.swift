@@ -77,12 +77,12 @@ final class StaffState {
               row.items.allSatisfy({ $0.requested_quantity >= 0 && (0...$0.requested_quantity).contains(quantities[$0.id] ?? 0) }),
               quantities.values.contains(where: { $0 > 0 }) else { error = String(localized: "Choose a valid quantity for at least one item."); return }
         let body = Components.Schemas.AcceptRequest(accepted_quantities: row.items.map { .init(item_id: $0.id, quantity: quantities[$0.id] ?? 0) })
-        await mutate("Request accepted.") { _ = try await self.repository.accept(id: row.id, body: body) }
+        await mutate("Request accepted.") { _ = try await self.repository.accept(id: row.id, body: body); Telemetry.shared.track(.staffRequestDecided(decision: "accepted")) }
     }
     func reject(_ row: Components.Schemas.AdminRequest, reason: String) async {
         let value = reason.trimmingCharacters(in: .whitespacesAndNewlines)
         guard can("reject_request"), row.makerspace_id == makerspaceID, !value.isEmpty else { error = String(localized: "Add a reason before rejecting this request."); return }
-        await mutate("Request rejected.") { _ = try await self.repository.reject(id: row.id, body: .init(reason: value)) }
+        await mutate("Request rejected.") { _ = try await self.repository.reject(id: row.id, body: .init(reason: value)); Telemetry.shared.track(.staffRequestDecided(decision: "rejected")) }
     }
     private func mutate(_ success: String, operation: () async throws -> Void) async {
         guard canRequest else { return }; busy = true; error = nil; notice = nil

@@ -61,13 +61,13 @@ struct StaffHandoverView: View {
             .sheet(item: $scanner) { kind in
                 NativeQRScanner(title: kind == .box ? String(localized: "Check handover code") : String(localized: "Add equipment")) { value in
                     scanner = nil; Task { await state.scan(value, box: kind == .box) }
-                }
+                }.telemetryScreen(.staff_scan)
             }
             .fullScreenCover(isPresented: $camera) {
                 NativeEvidenceCamera(onPhoto: { result in
                     camera = false
                     switch result { case .success(let photo): state.setPhoto(photo); case .failure: cameraMessage = String(localized: "This photo could not be prepared. Take another photo.") }
-                }, onCancel: { camera = false }).ignoresSafeArea()
+                }, onCancel: { camera = false }).ignoresSafeArea().telemetryScreen(.staff_evidence)
             }
             .confirmationDialog(state.mode.isReturn ? "Record this return?" : "Record this handout?", isPresented: $confirm, titleVisibility: .visible) {
                 Button("Record handover") { Task { await state.confirm() } }

@@ -1,14 +1,26 @@
 {
-  "version": 1,
-  "provenance": "design/docs/ui-brand-spec.md, section E motion table; owner mobile UX extension 2026-10-16",
+  "version": 2,
+  "provenance": "Design-Kit 0.12.0 motion tokens (design/tokens/tokens.json motion; ui-brand-spec section E): fast 120, base 180, slow 240 ms; standard, enter and exit curves; enter-y 8, pop-scale 0.98. Owner mobile UX extension 2026-10-16 keeps the onboarding and reduced-motion rules.",
   "duration_ms": {
     "color": 120,
-    "expand": 200,
-    "overlay_enter": 240,
-    "overlay_exit": 160
+    "expand": 180,
+    "overlay_enter": 180,
+    "overlay_exit": 120,
+    "route_settle": 240
   },
   "easing": {
-    "overlay_enter_cubic_bezier": [0.32, 0.72, 0.0, 1.0]
+    "standard_cubic_bezier": [0.2, 0.0, 0.0, 1.0],
+    "overlay_enter_cubic_bezier": [0.16, 1.0, 0.3, 1.0],
+    "overlay_exit_cubic_bezier": [0.4, 0.0, 1.0, 1.0]
+  },
+  "distance": {
+    "enter_y_pt": 8,
+    "pop_scale": 0.98
+  },
+  "kit_tokens": {
+    "duration_ms": {"color": "fast", "expand": "base", "overlay_enter": "base", "overlay_exit": "fast", "route_settle": "slow"},
+    "easing": {"standard_cubic_bezier": "standard", "overlay_enter_cubic_bezier": "enter", "overlay_exit_cubic_bezier": "exit"},
+    "distance": {"enter_y_pt": "enter-y", "pop_scale": "pop-scale"}
   },
   "onboarding": {
     "blocking_delay_ms": 0,

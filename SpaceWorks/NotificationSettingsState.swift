@@ -58,6 +58,7 @@ extension NativeNotifications: NativePushAccess {}
         wantsEnable = true; localError = nil
         await native.requestPermission()
         guard active, revision == expected else { return }
+        Telemetry.shared.track(.pushPermissionResult(granted: allowed))
         guard allowed else { wantsEnable = false; return }
         if let token = native.token { await reconcile(token, expected: expected) }
         // APNs may supply the token after authorization returns. Only this account's callback may use it.

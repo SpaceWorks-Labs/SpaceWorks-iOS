@@ -9,5 +9,13 @@
   "theme_tokens": "design/tokens/tokens.json",
   "app_icon": "branding/app-icon.svg",
   "aps_environment": null,
-  "associated_domains": []
+  "associated_domains": [],
+  "telemetry": {
+    "sentry_dsn": null,
+    "sentry_environment": null,
+    "sentry_traces_sample_rate": 0.1,
+    "posthog_api_key": null,
+    "posthog_host": "https://eu.i.posthog.com",
+    "clarity_project_id": null
+  }
 }

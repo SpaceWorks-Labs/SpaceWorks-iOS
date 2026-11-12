@@ -68,9 +68,11 @@ final class AccountAccessState: Identifiable {
         guard validatePasswords() else { return }
         guard password.count <= 128 else { reject(String(localized: "Use a password with no more than 128 characters.")); return }
         guard phone.count <= 32 else { reject(String(localized: "Use a phone number with no more than 32 characters.")); return }
+        Telemetry.shared.track(.signUpStarted)
         await perform(feedback: .success) {
             try await self.create(trimmed, self.email.trimmingCharacters(in: .whitespacesAndNewlines), self.password, self.phone)
             self.clearSecrets(); self.step = .created
+            Telemetry.shared.track(.signUpCompleted)
         }
     }
     func requestCode(resending: Bool = false) async {
@@ -81,6 +83,7 @@ final class AccountAccessState: Identifiable {
             self.resendAfter = self.now().addingTimeInterval(60)
             self.notice = String(localized: "If an account matches this email, a recovery code will arrive. Delivery may take a few minutes.")
             self.step = .confirmReset
+            Telemetry.shared.track(.passwordResetRequested)
         }
     }
     func confirmReset() async {

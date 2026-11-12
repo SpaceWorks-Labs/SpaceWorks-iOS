@@ -6,6 +6,9 @@ struct SpaceWorksApp: App {
     @UIApplicationDelegateAdaptor(NativeNotificationDelegate.self) private var notificationDelegate
     init() {
         NativeAppearance.apply()
+        // Providers start only for purposes the person granted; diagnostics first so crashes are caught early.
+        Telemetry.shared = Telemetry.live()
+        Telemetry.shared.track(.appOpen)
         if let saved = Brand.serverURL ?? UserDefaults.standard.string(forKey: "server-origin"),
            let origin = try? ServerOrigin(saved), (try? TokenVault(origin: origin).load()) != nil {
             // Upgrade an existing signed-in installation without inserting a tour into restoration.

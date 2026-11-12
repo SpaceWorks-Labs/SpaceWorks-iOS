@@ -73,6 +73,7 @@ final class RequestCartState {
         do {
             let result = try await repository.submit(items: items, purpose: purpose.trimmingCharacters(in: .whitespacesAndNewlines), key: attemptKey)
             guard active, generation == expected else { return }
+            Telemetry.shared.track(.hardwareRequestSubmitted(itemCount: items.count))
             lines = []; purpose = ""; receipt = result
             attemptKey = UUID().uuidString; retryAfter = nil; feedback = .init(.success)
         } catch {

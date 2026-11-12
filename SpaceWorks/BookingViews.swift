@@ -13,7 +13,7 @@ struct SpaceDiscoveryView: View {
                 Text("Make room for your next idea. Availability and approvals come from your makerspace.").foregroundStyle(Color.swMuted)
                 if isDemo { Text("Demo mode · sample spaces").brandFont(.caption, weight: .bold).foregroundStyle(Color.swMuted) }
                 LoadFeedback(load: member.spacesLoad, retryAfter: member.deadline("spaces")) { await member.loadSpaces() }
-                if member.spacesLoad == .ready && member.spaces.isEmpty { SWCard { Text("Nothing here yet.").foregroundStyle(Color.swMuted) } }
+                if member.spacesLoad == .ready && member.spaces.isEmpty { SWCard { SWEmptyState() } }
                 ForEach(member.spaces, id: \.public_token) { space in
                     NavigationLink(value: MemberRoute.space(space.public_token)) {
                         SWCard {
@@ -171,7 +171,7 @@ struct MemberBookingDetailView: View {
     private func cancel() async {
         guard active, !busy, current.can_cancel, (retryAfter ?? .distantPast) <= Date() else { return }
         busy = true; error = nil; defer { busy = false }
-        do { let value = try await repository.cancelBooking(token: current.public_token); guard active else { return }; updated = value; await completed() }
+        do { let value = try await repository.cancelBooking(token: current.public_token); guard active else { return }; updated = value; Telemetry.shared.track(.bookingCancelled); await completed() }
         catch { if active { self.error = APIError.display(error); retryAfter = APIError.retryDeadline(error) } }
     }
 }

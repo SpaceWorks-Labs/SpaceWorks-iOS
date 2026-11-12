@@ -108,7 +108,7 @@ struct RenewLoanView: View {
     }
     private func renew() async {
         guard !busy else { return }; busy = true; error = nil; defer { busy = false }
-        do { result = try await repository.renew(request: loan.request_id); await completed() }
+        do { result = try await repository.renew(request: loan.request_id); Telemetry.shared.track(.loanRenewed); await completed() }
         catch { self.error = APIError.display(error); retryAfter = APIError.retryDeadline(error) }
     }
 }

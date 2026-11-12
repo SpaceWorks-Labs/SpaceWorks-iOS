@@ -43,3 +43,19 @@ development attestation and local HTTP must remain Debug-only. Store credentials
 Mobile-specific onboarding/auth UX and motion belong in `docs/mobile-auth-ux-spec.md` and
 `tokens/mobile-motion.json` in this repository. Do not push mobile implementation/spec additions
 to the Design repository. The Design submodule supplies the existing brand masters and colors.
+
+## Owner extensions (2026-11-12)
+
+- **Design-Kit 0.12.0.** The `design` submodule follows `SpaceWorks-Labs/SpaceWorks-Design` `main` at
+  `b2aa5bb` (solid-black dark palette, `scrim`, `motion` and `cards.aurora` tokens, Outfit/Unbounded
+  typography, Patch mascot). This supersedes the earlier "keep Design at
+  fd28f825" rule. `tokens/mobile-motion.json` must equal the kit's motion tokens where they overlap
+  (checked by the generator).
+- **Open-licensed fonts only (2026-11-13).** Outfit (OFL) for body, interface and display headings
+  (Outfit 800 for display, 300 for light display) and Unbounded (OFL) for at most one short accent
+  phrase per screen. Gilroy is not open-licensed: never bundle, convert or commit any Gilroy file.
+  The OFL texts ship in the bundle.
+- **Telemetry.** Firebase Analytics (without ad-id support), PostHog, Microsoft Clarity and Sentry are
+  authorized for consent-gated telemetry exactly as in `docs/TELEMETRY.md`. This supersedes rule 6's
+  "no analytics SDKs" and the earlier "no Firebase on iOS" rule for these four providers only; APNs stays
+  direct. No other analytics or advertising SDK without asking.

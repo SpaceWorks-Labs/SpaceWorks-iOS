@@ -120,6 +120,7 @@ final class MemberState {
             var ids = Set<Int>()
             products = (more ? products + result.results : result.results).filter { ids.insert($0.id).inserted }
             nextInventoryPage = next; inventoryHasMore = next != nil; inventoryLoad = .ready
+            if !more && (query != appliedSearch || filter != appliedCategory) { Telemetry.shared.track(.inventorySearched(hasQuery: !query.isEmpty)) }
             appliedSearch = query; appliedCategory = filter
             updated["inventory"] = Date()
             if categories.isEmpty { await loadCategories() }

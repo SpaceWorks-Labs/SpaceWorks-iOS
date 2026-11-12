@@ -1,13 +1,20 @@
 # Reviewed build dependencies
 
-`Package.resolved` is the unmodified Xcode lock exported from actual source
-`47e1880a5c7fe549608e2a38cba789d47cf152dc`, focused run
-[39100123222](https://github.com/SpaceWorks-HQ/SpaceWorks-iOS/actions/runs/39100123222),
-artifact 12125599794. SHA-256:
-`4a0c17f8dbe46c87952310b079a07b89481d715af79b17a2d164581e7b7b2aa0`.
-Its 20 version/revision pins include the direct and transitive app/code-generator dependencies.
-The package/project declarations were unchanged at `775f298`. This provenance is an actual focused
-build, not a claim that the old source passed complete final validation.
+`Package.resolved` is the Xcode lock resolved on 2026-11-13 (Xcode 27.2) for the owner-authorized
+telemetry SDKs (`docs/TELEMETRY.md`): Firebase 13.1.1 (`FirebaseAnalyticsCore` only, which links
+`GoogleAppMeasurementCore` and no ad-identifier support), PostHog 3.94.4, Sentry 9.34.0 and Microsoft
+Clarity 4.1.2. Firebase 13 needs `app-check` 12, so GoogleSignIn moved from 10.0.0 to 10.1.0 (the first
+release that accepts `app-check` 12; no API change used by the app). Every other pin is unchanged from
+the previous reviewed lock. Its 31 version/revision pins include the direct and transitive app and
+code-generator dependencies; transitive packages that only Firebase products the app does not link use
+(gRPC, abseil, leveldb, the Google Ads on-device conversion package) are resolved by SwiftPM but never
+linked, and `scripts/audit_bundle.py` refuses a Release bundle that contains ad-identifier code.
+SHA-256: `6301f972b230d4510068e13e4df7082c7a6e094bf19023781b434ea2920dd142`.
+
+Large clones can be served from local shallow mirrors without changing the lock: put a bare
+`git clone --bare --depth 1 --branch <tag>` under `.tools/mirrors/` (ignored) and list it in the
+generated workspace's `xcshareddata/swiftpm/configuration/mirrors.json`. The lock still records the
+upstream URL and revision.
 
 Following [Apple's CI guidance](https://developer.apple.com/documentation/xcode/building-swift-packages-or-apps-that-use-them-in-continuous-integration-workflows),
 after generating the Xcode project run `python3 scripts/dependency_lock.py stage`.

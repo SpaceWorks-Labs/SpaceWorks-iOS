@@ -10,6 +10,8 @@ SpaceWorks/Generated/
 SpaceWorks/Assets.xcassets/
 Packages/SpaceWorksAPI/Sources/SpaceWorksAPI/openapi.json
 google-services.json
+# Firebase iOS config: copied into the app only when present, never committed.
+SpaceWorks/GoogleService-Info.plist
 *.p8
 *.p12
 *.mobileprovision
