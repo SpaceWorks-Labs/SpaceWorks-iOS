@@ -17,8 +17,13 @@ protocol MemberRepository: Sendable {
     func markRead(_ id: Int) async throws
     func markAllRead() async throws
     func unreadCount() async throws -> Int
+    /// The member may change only the name printed on their card.
+    func updateCardName(_ name: String) async throws -> Components.Schemas.MemberCard
 }
-extension MemberRepository { var isDemo: Bool { false } }
+extension MemberRepository {
+    var isDemo: Bool { false }
+    func updateCardName(_ name: String) async throws -> Components.Schemas.MemberCard { throw APIError(status: 0, code: "unsupported", detail: String(localized: "This isn't available here.")) }
+}
 
 @MainActor @Observable
 final class MemberState {
@@ -167,6 +172,22 @@ final class MemberState {
         spacesLoad = .loading
         do { let result = try await repository.spaces(); guard active else { return }; spaces = result; spacesLoad = .ready }
         catch { guard active else { return }; recordFailure(error, role: "spaces"); spacesLoad = .failed(APIError.display(error)) }
+    }
+    private(set) var cardNameBusy = false
+    private(set) var cardNameError: String?
+    /// PATCH the printed name, then re-read the card so the server's view (QR, status) stays authoritative.
+    func renameCard(_ name: String) async -> Bool {
+        let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard active, !cardNameBusy else { return false }
+        guard !value.isEmpty, value.count <= 200 else { cardNameError = String(localized: "Enter a name of up to 200 characters."); return false }
+        cardNameBusy = true; cardNameError = nil
+        defer { cardNameBusy = false }
+        do { _ = try await repository.updateCardName(value) } catch {
+            guard active else { return false }
+            recordFailure(error, role: "card"); cardNameError = APIError.display(error); return false
+        }
+        guard active else { return false }
+        await loadCard(); return true
     }
     func loadCard() async {
         // A newer explicit refresh must supersede an in-flight card read: a refused or

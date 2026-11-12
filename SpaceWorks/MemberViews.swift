@@ -126,7 +126,7 @@ struct MemberContent: View {
                     if actions != nil { NavigationLink(booking.space_name, value: MemberRoute.booking(booking.public_token)).brandFont(.headline).frame(minHeight: 48) }
                     else { Text(booking.space_name).brandFont(.headline) }
                     Text(memberDate(booking.starts_at, timezone: booking.timezone))
-                    Text(NativeStatusCopy.label(booking.status.value1.rawValue)).foregroundStyle(Color.swMuted)
+                    Text(NativeStatusCopy.label(booking.status.value1)).foregroundStyle(Color.swMuted)
                 }.padding(.vertical, 8)
             }
             if state.bookingsHasMore { Button("Load more bookings") { Task { await state.loadBookings(more: true) } }.frame(minHeight: 48).disabled(state.bookingsLoad == .loading) }
@@ -310,8 +310,8 @@ struct InventoryList: View {
 
 private func availability(_ product: Components.Schemas.PublicProduct) -> String {
     guard let value = product.availability else { return String(localized: "Ask your makerspace about availability.") }
-    if let count = value.count, value.mode == .exact_count { return String(localized: "\(count) available") }
-    return value.label?.rawValue ?? String(localized: "Ask your makerspace about availability.")
+    if let count = value.count, value.mode == "exact_count" { return String(localized: "\(count) available") }
+    return value.label ?? String(localized: "Ask your makerspace about availability.")
 }
 
 private func memberDate(_ date: Date, timezone: String) -> String {
@@ -403,6 +403,8 @@ struct MemberInbox: View {
 
 struct MemberCardView: View {
     let state: MemberState
+    @State private var renaming = false
+    @State private var printedName = ""
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
@@ -414,6 +416,11 @@ struct MemberCardView: View {
                     LoadFeedback(load: state.cardLoad, retryAfter: state.deadline("card")) { await state.loadCard() }
                     if let card = state.card, card.is_active {
                         Text(card.printed_name).brandFont(.title2, weight: .bold)
+                        if !state.repository.isDemo {
+                            Button("Change printed name") { printedName = card.printed_name; renaming = true }
+                                .frame(minHeight: 48).disabled(state.cardNameBusy).accessibilityIdentifier("card-rename")
+                        }
+                        if let error = state.cardNameError { SWError(message: error) }
                         Text("Card \(card.card_number)").monospacedDigit()
                         if card.qr_active, let image = card.qr_image.flatMap(Self.qrImage) {
                             Image(uiImage: image).interpolation(.none).resizable().scaledToFit().frame(maxWidth: 320).accessibilityLabel("Membership card QR code")
@@ -425,6 +432,11 @@ struct MemberCardView: View {
                 }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
             }.background(Color.swBg).toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.frame(minHeight: 48) } }
         }.privacySensitive().task { await state.loadCard() }
+            .alert("Name on your card", isPresented: $renaming) {
+                TextField("Printed name", text: $printedName).accessibilityIdentifier("card-printed-name")
+                Button("Save") { Task { _ = await state.renameCard(printedName) } }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text("This is the name printed on your membership card.") }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await state.loadCard() } } }
     }
     private static func qrImage(_ value: String) -> UIImage? {

@@ -1,0 +1,27 @@
+[
+  {
+    "amount": "120.00",
+    "checkout_url": "",
+    "created_at": "2026-11-01T09:00:00Z",
+    "currency": "INR",
+    "due_date": null,
+    "due_state": "due",
+    "id": 501,
+    "offline_collection": {
+      "claim": null,
+      "claimable": false,
+      "instructions": "",
+      "instructions_unit": null,
+      "upi": null
+    },
+    "online_payment_available": true,
+    "refund_case": null,
+    "refund_requestable": false,
+    "refunded_amount": 0,
+    "refunds": [],
+    "settlement": null,
+    "subject_label": "Rental: oscilloscope",
+    "subject_type": "loan_rental",
+    "status": "pending"
+  }
+]

@@ -31,7 +31,7 @@ import SpaceWorksAPI
         first.updateCapabilities(selfService: true, exports: true); second.updateCapabilities(selfService: true, exports: true)
         await first.loadMembership()
         let remaining = try await second.repository.membership()
-        XCTAssertEqual(remaining.status.rawValue, "active")
+        XCTAssertEqual(remaining.status, "active")
         first.membershipReason = "Moving away"; await first.leaveMakerspace()
         XCTAssertEqual(session.availableSpaces, [1]); XCTAssertEqual(session.stage, .makerspace)
         XCTAssertEqual(session.selectedSpace, 1)

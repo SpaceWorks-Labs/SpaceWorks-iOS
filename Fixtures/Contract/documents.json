@@ -1,0 +1,18 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "amount": "120.00",
+      "currency": "INR",
+      "id": 601,
+      "issued_at": "2026-10-16T09:00:00Z",
+      "kind": "bill",
+      "money_at": "2026-10-16T09:00:00Z",
+      "number": "BILL-0001",
+      "payment": 501,
+      "status": ""
+    }
+  ]
+}

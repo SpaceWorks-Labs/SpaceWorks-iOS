@@ -21,8 +21,16 @@ struct LiveMemberActionsRepository: MemberActionsRepository {
         }
     }
     func bootstrap() async throws -> Components.Schemas.TenantBootstrap { try await checked { try await service.memberBootstrap(slug: slug) } }
+    /// The 0.12.0 contract no longer takes an idempotency header for this route (backend gap B-3); the
+    /// reviewed attempt key stays local so an edited cart is still a new attempt.
     func submit(items: [Components.Schemas.RequestItemInput], purpose: String, key: String) async throws -> Components.Schemas.RequestSubmitResponse {
-        try await checked { try await service.submitMemberRequest(slug: slug, items: items, purpose: purpose, idempotencyKey: key) }
+        try await checked { try await service.submitMemberRequest(slug: slug, items: items, purpose: purpose) }
+    }
+    func requestStatus(token: String) async throws -> Components.Schemas.PublicRequestStatus {
+        try await checked { try await service.memberRequestStatus(token: token) }
+    }
+    func reschedule(booking token: String, start: Date, end: Date) async throws -> Components.Schemas.MemberBooking {
+        try await checked { try await service.rescheduleMemberBooking(slug: slug, token: token, start: start, end: end) }
     }
     func renew(request: Int) async throws -> Components.Schemas.LoanRenewal {
         try await checked { try await service.renewMemberLoan(id: id, requestID: request) }

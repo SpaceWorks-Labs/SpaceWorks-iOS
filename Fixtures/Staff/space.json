@@ -22,6 +22,7 @@
   "is_public": false,
   "kind": "dev_room",
   "location": "",
+  "machine": null,
   "machine_type": null,
   "makerspace_id": 7,
   "max_booking_advance_days": 0,

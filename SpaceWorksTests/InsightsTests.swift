@@ -88,6 +88,8 @@ private actor InsightsFake: InsightsRepository {
         StubProtocol.lock.lock()
         StubProtocol.handler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "X-Makerspace-Id"), "7")
+            let staffRoute = request.url!.path.hasPrefix("/api/v1/admin/")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), staffRoute ? "Bearer staff-access" : "Bearer fixture-access")
             let json = ["Content-Type": "application/json"]
             switch request.url!.path {
             case "/api/v1/member/makerspaces/7/my-usage": return (200, json, Data(DebugAuthFixtures.usage.utf8))
@@ -105,11 +107,13 @@ private actor InsightsFake: InsightsRepository {
         StubProtocol.lock.unlock()
         let configuration = DeviceSession.configuration(); configuration.protocolClasses = [StubProtocol.self]
         let service = SpaceWorksService(origin: try ServerOrigin("https://spaceworks.example"), session: DeviceSession.make(configuration: configuration),
-                                       initialTokens: TokenPair(access: "fixture-access", refresh: "fixture-refresh"))
+                                       initialTokens: TokenPair(access: "fixture-access", refresh: "fixture-refresh"),
+                                       staffStorage: MemoryStaffGrantStorage(.init(pair: .init(access: "staff-access", refresh: "staff-refresh"), makerspaceID: 7, makerspaceSlug: "demo-workshop")))
         try await service.makerspace.select(7, activeMemberships: [7])
-        let repository = LiveInsightsRepository(service: service, expectedCredentials: await service.refresh.snapshot(), makerspaceID: 7)
+        let repository = LiveInsightsRepository(service: service, expectedCredentials: await service.refresh.snapshot(), makerspaceID: 7,
+                                                staffCredentials: await service.staffRefresh.snapshot())
         let usage = try await repository.usage(); XCTAssertTrue(usage.usage_available)
-        let dashboard = try await repository.dashboard(); XCTAssertEqual(dashboard.scope_mode, .full)
+        let dashboard = try await repository.dashboard(); XCTAssertEqual(dashboard.scope_mode, "full")
         _ = try await repository.messaging()
         _ = try await repository.consent(channel: .sms, optIn: false)
     }

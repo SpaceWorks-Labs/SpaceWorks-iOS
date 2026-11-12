@@ -153,7 +153,7 @@ import XCTest
         var left = false
         let account = state(DemoAccountRepository(scenario: .blockedMembership), left: { left = true })
         await account.loadMembership(); account.membershipReason = "Moving away"; await account.leaveMakerspace()
-        XCTAssertFalse(left); XCTAssertEqual(account.membership?.status.rawValue, "active"); XCTAssertNotNil(account.error)
+        XCTAssertFalse(left); XCTAssertEqual(account.membership?.status, "active"); XCTAssertNotNil(account.error)
     }
     func testSelfServiceDisabledDuringPushCleanupAbortsLeaveAndReturnsOwnershipForSafeResume() async throws {
         let repository = DemoAccountRepository(); var resumed = 0; var ended = false
@@ -162,21 +162,21 @@ import XCTest
             membershipEnded: { ended = true }, beforeLeave: { account.updateCapabilities(selfService: false, exports: false) }, leaveFailed: { resumed += 1 })
         await account.loadMembership(); account.membershipReason = "Moving away"; await account.leaveMakerspace()
         let actual = try await repository.membership()
-        XCTAssertEqual(actual.status.rawValue, "active"); XCTAssertEqual(resumed, 1); XCTAssertFalse(ended)
+        XCTAssertEqual(actual.status, "active"); XCTAssertEqual(resumed, 1); XCTAssertFalse(ended)
         XCTAssertNil(account.membership); XCTAssertFalse(account.memberSelfServiceAvailable)
     }
     func testCancellingRenewalKeepsMembershipWhileLeavingEndsScope() async {
         var left = false
         let account = state(left: { left = true }); await account.loadMembership(); account.membershipReason = "Renew manually"
-        await account.cancelRenewal(); XCTAssertEqual(account.membership?.status.rawValue, "active"); XCTAssertNotNil(account.membership?.renewal_cancelled_at); XCTAssertFalse(left)
+        await account.cancelRenewal(); XCTAssertEqual(account.membership?.status, "active"); XCTAssertNotNil(account.membership?.renewal_cancelled_at); XCTAssertFalse(left)
         account.membershipReason = "Moving away"; await account.leaveMakerspace(); XCTAssertTrue(left); XCTAssertFalse(account.isActive)
     }
     func testExportIsPendingUntilExplicitStatusCheckAndArchiveIsDeletedOnScopeEnd() async throws {
         let account = state(); await account.requestExport()
-        let pending = try XCTUnwrap(account.exports.first); XCTAssertEqual(pending.status.value1.rawValue, "pending")
+        let pending = try XCTUnwrap(account.exports.first); XCTAssertEqual(pending.status.value1, "pending")
         await account.downloadExport(pending); XCTAssertNil(account.archive)
         await account.refreshExport(pending); let available = try XCTUnwrap(account.exports.first)
-        XCTAssertEqual(available.status.value1.rawValue, "available"); await account.downloadExport(available)
+        XCTAssertEqual(available.status.value1, "available"); await account.downloadExport(available)
         let url = try XCTUnwrap(account.archive?.url); XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
         account.invalidate(); XCTAssertNil(account.archive); XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
     }

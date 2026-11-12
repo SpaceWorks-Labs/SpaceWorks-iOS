@@ -22,7 +22,7 @@ struct EventDetailView: View {
                 SWCard { Text("About the event").brandFont(.title2, weight: .bold); Text(event.description) }
                 if let result = state.result {
                     SWCard {
-                        Label(resultTitle(result.status.value1.rawValue), systemImage: "ticket").brandFont(.title2, weight: .bold)
+                        Label(resultTitle(result.status.value1), systemImage: "ticket").brandFont(.title2, weight: .bold)
                         Text("Find this registration in Activity. Tickets appear only after registration is confirmed.").foregroundStyle(Color.swMuted)
                         Text("Payment and approval are confirmed by your makerspace. This receipt does not confirm a payment.").brandFont(.caption).foregroundStyle(Color.swMuted)
                         Button("View registrations", action: viewActivity).buttonStyle(SWPrimary())
@@ -42,7 +42,7 @@ struct EventDetailView: View {
                                 }
                             }.frame(minHeight: 48)
                         }
-                        if event.registration_audience.value1 == .invite { input(String(localized: "Invitation code"), value: $state.invite).textInputAutocapitalization(.never).autocorrectionDisabled() }
+                        if event.registration_audience.value1 == "invite" { input(String(localized: "Invitation code"), value: $state.invite).textInputAutocapitalization(.never).autocorrectionDisabled() }
                         if event.promo_codes_enabled { input(String(localized: "Promo code (optional)"), value: $state.promo).textInputAutocapitalization(.never).autocorrectionDisabled() }
                         input(String(localized: "Phone number (optional)"), value: $state.phone).textContentType(.telephoneNumber).keyboardType(.phonePad)
                         input(String(localized: "Email (optional)"), value: $state.email).textContentType(.emailAddress).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()

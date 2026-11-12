@@ -14,10 +14,13 @@ struct RequestCartView: View {
                     if let receipt = state.receipt {
                         SWCard {
                             Label("Request received", systemImage: "checkmark.circle").brandFont(.largeTitle, weight: .bold)
-                            Text(NativeStatusCopy.label(receipt.status)).brandFont(.title2)
+                            Text(NativeStatusCopy.label(state.receiptStatus ?? receipt.status)).brandFont(.title2).accessibilityIdentifier("request-status")
                             Text("Your makerspace will review your request and confirm collection and due dates.").foregroundStyle(Color.swMuted)
                             Text("Request reference").brandFont(.headline)
                             Text(receipt.public_token).brandFont(.body, weight: .medium).monospacedDigit().textSelection(.enabled)
+                            if let error = state.error { SWError(message: error) }
+                            Button(state.busy ? "Checking…" : "Check status") { Task { await state.refreshReceiptStatus() } }
+                                .frame(minHeight: 48).disabled(state.busy).accessibilityIdentifier("request-check-status")
                             Button("Done") { dismiss() }.buttonStyle(SWPrimary())
                         }
                     } else {

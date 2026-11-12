@@ -1,14 +1,15 @@
 {
-  "source": "Owner backend mobile contract snapshot SpaceWorks/frontend/openapi-schema.json",
-  "source_repository": "https://github.com/SpaceWorks-HQ/SpaceWorks.git",
-  "source_branch": "feature/mobile-backend",
-  "source_file_commit": "3123173da58dee1d174ac5be8b9f3a9cc3313ffb",
-  "source_head": "f65ba332f702ac49dbd59d3897490bccf3e18053",
-  "received": "2026-10-18",
+  "source": "Backend OpenAPI snapshot SpaceWorks/frontend/openapi-schema.json (release 0.12.0)",
+  "source_repository": "https://github.com/SpaceWorks-Labs/SpaceWorks.git",
+  "source_branch": "dev",
+  "source_file_commit": "b502caeb8c5fb96cbc104686ed096aff0bd381b8",
+  "source_head": "5c7f573363e97aa3844d7eb9f372cba31f918c3b",
+  "source_version": "0.12.0",
+  "received": "2026-11-12",
   "openapi": "3.0.3",
-  "paths": 760,
-  "bytes": 4997776,
-  "sha256": "962e6a4b5b6927db0214c11e4b3b5ff688f660dccb8e674a7403b996cb1d8460",
-  "supersedes_sha256": "d5ec904eb2a52ca948ee38dae7840c8859a43e034a22f3b8dc478fd8851cbb9b",
-  "note": "Copied byte-for-byte from the read-only mobile backend worktree; the backend was not modified. Operations already include the API prefix, so clients use a validated deployment origin. The generator filter selects implemented operations and their generated dependencies. The mechanical build projection selects documented JSON request media or an optional no-body request where malformed content declares no media type; paths, DTO fields and response schemas are preserved."
+  "paths": 2211,
+  "bytes": 17638300,
+  "sha256": "8045528d3ea3def75e4abef01a5cac8317fb95ceb721ed714698d54c0a02ab7e",
+  "supersedes_sha256": "962e6a4b5b6927db0214c11e4b3b5ff688f660dccb8e674a7403b996cb1d8460",
+  "note": "Copied byte-for-byte from the read-only backend clone; the backend was not modified. Operations already include the API prefix, so clients use a validated deployment origin. The generator filter selects implemented operations and their generated dependencies. The mechanical build projection selects documented JSON request media or an optional no-body request where malformed content declares no media type, and opens every string enum reachable from a selected operation's response (PRD §7: an unknown enum value must decode; the app maps values in hand-written wrappers). Paths, DTO fields and response shapes are preserved."
 }

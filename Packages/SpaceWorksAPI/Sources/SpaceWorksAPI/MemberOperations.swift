@@ -29,6 +29,11 @@ extension SpaceWorksService {
     public func memberCard(id: Int) async throws -> Components.Schemas.OwnMemberCard {
         try await client.api_v1_member_makerspaces_member_card_retrieve(.init(path: .init(makerspace_id: id))).ok.body.json
     }
+    /// The member may change only the name printed on their own card.
+    public func updateMemberCard(id: Int, printedName: String) async throws -> Components.Schemas.MemberCard {
+        try await client.api_v1_member_makerspaces_member_card_partial_update(.init(path: .init(makerspace_id: id),
+            body: .json(.init(printed_name: printedName)))).ok.body.json
+    }
     public func memberInbox(id: Int, page: Int, unread: Bool) async throws -> Components.Schemas.InboxPage {
         try await client.api_v1_notifications_inbox_retrieve(.init(path: .init(makerspace_id: id), query: .init(page: page, unread: unread))).ok.body.json
     }

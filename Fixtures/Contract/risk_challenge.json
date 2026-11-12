@@ -1,0 +1,10 @@
+{
+  "challenge": "risk-challenge-0000000000000001",
+  "enrollment_required": false,
+  "expires_in": 600,
+  "mfa_required": true,
+  "purpose": "risk",
+  "factors": [
+    "email_code"
+  ]
+}

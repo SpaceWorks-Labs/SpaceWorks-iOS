@@ -95,7 +95,7 @@ struct AccountDeletionView: View {
 
     @ViewBuilder private var factor: some View {
         Text("One more step").brandFont(.title2, weight: .bold)
-        Text(state.factorKind == .totp ? "Enter the six-digit code from your authenticator app." : "Enter the six-digit code we sent you.").foregroundStyle(Color.swMuted)
+        Text(state.factorKind == "totp" ? "Enter the six-digit code from your authenticator app." : "Enter the six-digit code we sent you.").foregroundStyle(Color.swMuted)
         codeField(title: "Verification code")
         Button(state.busy ? "Verifying…" : "Verify identity") { Task { await state.verifyFactor() } }
             .buttonStyle(SWPrimary()).disabled(state.busy).accessibilityIdentifier("deletion-factor")

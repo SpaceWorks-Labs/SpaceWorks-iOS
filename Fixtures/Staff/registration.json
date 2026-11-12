@@ -1,4 +1,5 @@
 {
+  "attendance_reply": null,
   "cancelled_at": null,
   "created_at": "2026-10-16T09:00:00Z",
   "custom_answers": null,
@@ -6,13 +7,16 @@
   "email": "meera@example.test",
   "event_id": 801,
   "id": 1101,
+  "is_crew": false,
   "name": "Meera Nair",
   "no_longer_eligible": false,
+  "pay_by": null,
   "payment": null,
   "phone": "",
   "quoted_amount": null,
   "restore_until": null,
   "status": "registered",
   "status_before_cancel": "",
-  "ticket_type_id": null
+  "ticket_type_id": null,
+  "ticket_type_name": null
 }

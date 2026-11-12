@@ -11,8 +11,15 @@ public enum AccountOperationFailure {
 }
 
 extension SpaceWorksService {
+    /// 0.12.0 pages the device list (`DeviceGrantPage`, 24 per page). Reads every page, bounded.
     public func accountGrants() async throws -> [Components.Schemas.DeviceGrant] {
-        try await client.api_v1_auth_device_grants_list().ok.body.json
+        var rows: [Components.Schemas.DeviceGrant] = []
+        for page in 1...20 {
+            let result = try await client.api_v1_auth_device_grants_list(.init(query: .init(page: page))).ok.body.json
+            rows += result.results
+            if result.next == nil || result.results.isEmpty { break }
+        }
+        return rows
     }
     public func accountRevokeGrant(id: String) async throws {
         _ = try await client.api_v1_auth_device_grants_destroy(.init(path: .init(grant_id: id))).noContent
@@ -38,7 +45,7 @@ extension SpaceWorksService {
         try await client.api_v1_member_makerspaces_account_exports_retrieve(.init(path: .init(makerspace_id: makerspaceID))).ok.body.json
     }
     public func accountRequestExport(makerspaceID: Int) async throws -> Components.Schemas.SubjectExport {
-        try await client.api_v1_member_makerspaces_account_exports_create(.init(path: .init(makerspace_id: makerspaceID), body: .json(.init()))).accepted.body.json
+        try await client.api_v1_member_makerspaces_account_exports_create(.init(path: .init(makerspace_id: makerspaceID))).accepted.body.json
     }
     public func accountExport(makerspaceID: Int, id: String) async throws -> Components.Schemas.SubjectExport {
         try await client.api_v1_member_makerspaces_account_exports_retrieve_2(.init(path: .init(job_id: id, makerspace_id: makerspaceID))).ok.body.json
@@ -59,7 +66,7 @@ extension SpaceWorksService {
     public func accountMFA() async throws -> Components.Schemas.MFAStatus {
         try await client.api_v1_auth_mfa_retrieve().ok.body.json
     }
-    /// Kept as a generated operation seam. Current backend refuses this route for device grants.
+    /// Settings enrolment for member device grants; staff grants get 403 `native_staff_mfa_managed`.
     public func accountStartMFA(password: String) async throws -> Components.Schemas.MFAChallengeResponse {
         try await client.api_v1_auth_mfa_create(.init(body: .json(.init(password: password)))).ok.body.json
     }

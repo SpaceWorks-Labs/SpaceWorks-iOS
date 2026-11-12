@@ -1,0 +1,98 @@
+{
+  "makerspace": {
+    "id": 7,
+    "name": "Fab Lab Kochi",
+    "slug": "fab-lab-kochi",
+    "public_code": "demo-fab",
+    "location": "Kochi",
+    "timezone": "Asia/Kolkata",
+    "opening_hours": {},
+    "map_url": "",
+    "logo_url": null,
+    "cover_image_url": null,
+    "public_stats_enabled": true,
+    "public_site_enabled": true,
+    "public_inventory_enabled": true,
+    "public_landing_page": "auto",
+    "membership_policy": "invite_only",
+    "request_access": "contact"
+  },
+  "frontend": {
+    "type": "native-preview",
+    "hostname": "demo.invalid",
+    "allowed_origins": []
+  },
+  "modules": [
+    "membership",
+    "member_accounts",
+    "notifications",
+    "hardware_requests",
+    "events",
+    "bookable_spaces"
+  ],
+  "edition": "demo",
+  "features": [
+    "membership.self_service",
+    "membership.self_export",
+    "notifications.member_preferences",
+    "notifications.member_inbox",
+    "notifications.digests"
+  ],
+  "workflows": [],
+  "theme": {},
+  "branding": {},
+  "email_enabled": true,
+  "public_api": {
+    "base_url": "https://demo.invalid",
+    "publishable_key": "",
+    "inventory_path": "/api/v1/public/fab-lab-kochi/inventory/"
+  },
+  "messaging": {
+    "sms": false,
+    "whatsapp": false
+  },
+  "charges_tracked": {
+    "bookings": false,
+    "donations": false,
+    "events": false,
+    "loans": false,
+    "machines": false,
+    "membership": false,
+    "shop": false
+  },
+  "default_locale": "",
+  "supported_locales": [],
+  "telemetry": {
+    "diagnostics": {
+      "firebase_performance": {
+        "enabled": false,
+        "sample_rate": 0
+      },
+      "sentry": {
+        "dsn": "",
+        "enabled": false,
+        "sample_rate": 0
+      }
+    },
+    "firebase": {
+      "api_key": "",
+      "app_id": "",
+      "auth_domain": "",
+      "measurement_id": "",
+      "messaging_sender_id": "",
+      "project_id": "",
+      "vapid_public_key": ""
+    },
+    "pageview": {
+      "endpoint": "",
+      "provider": "none",
+      "site_id": ""
+    },
+    "replay": {
+      "endpoint": "",
+      "provider": "none",
+      "site_id": ""
+    }
+  },
+  "telemetry_legacy_allowed": false
+}

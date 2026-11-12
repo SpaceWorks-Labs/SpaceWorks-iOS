@@ -1,0 +1,11 @@
+{
+  "cells": [
+    {
+      "available": true,
+      "channel": "email",
+      "enabled": true,
+      "feature": "presence",
+      "mandatory_events": []
+    }
+  ]
+}

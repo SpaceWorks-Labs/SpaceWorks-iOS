@@ -43,12 +43,19 @@ public struct APIError: Error, LocalizedError, Sendable, Equatable {
     public let code: String
     public let detail: String
     public let retryAfter: Date?
-    public init(status: Int, code: String, detail: String, retryAfter: Date? = nil) {
-        self.status = status; self.code = code; self.detail = detail; self.retryAfter = retryAfter
+    /// 426 `native_app_update_required` carries the enforced minimum (`minimum_version`).
+    public let minimumVersion: String?
+    public init(status: Int, code: String, detail: String, retryAfter: Date? = nil, minimumVersion: String? = nil) {
+        self.status = status; self.code = code; self.detail = detail; self.retryAfter = retryAfter; self.minimumVersion = minimumVersion
     }
     public var errorDescription: String? {
         switch code {
         case "device_superadmin_not_supported": return APILocalCopy.text("Use the web console")
+        case "session_revoked": return APILocalCopy.text("Your session has ended. Sign in again.")
+        case "native_app_update_required": return APILocalCopy.text("Update the app to continue.")
+        case "staff_access_required": return APILocalCopy.text("You don't have a staff role in that makerspace.")
+        case "login_code_invalid": return APILocalCopy.text("That code isn't valid. Check your email for the latest code.")
+        case "handle_required": return APILocalCopy.text("Choose a username to continue.")
         case "payment_rail_conflict": return APILocalCopy.text("Finish this payment on the web.")
         case "payments_unavailable": return APILocalCopy.text("Online payment is unavailable. Try again later or pay at the desk.")
         default: return detail
@@ -81,13 +88,84 @@ public struct APIError: Error, LocalizedError, Sendable, Equatable {
         if let error = error as? ClientError { return code(error.underlyingError) }
         return nil
     }
+    public static func apiError(_ error: Error) -> APIError? {
+        if let error = error as? APIError { return error }
+        if let error = error as? ClientError { return apiError(error.underlyingError) }
+        return nil
+    }
+    /// PRD §7: 426 `native_app_update_required` at device login, the staff step-up and refresh.
+    public static func isUpdateRequired(_ error: Error) -> Bool {
+        guard let error = apiError(error) else { return false }
+        return error.status == 426 || error.code == "native_app_update_required"
+    }
 }
 
-/// App Attest and development proofs travel in the schema's open verifier alternative. The shared
-/// generated `type` enum lists only `play_integrity` (PRD §7), so Apple's wire `type` is kept verbatim.
+/// Session-wide outcomes any operation can surface. AuthState observes them; nothing else does.
+public final class SessionSignals: @unchecked Sendable {
+    public enum Signal: Sendable, Equatable { case updateRequired(minimumVersion: String?) }
+    private let lock = NSLock()
+    private var handler: (@Sendable (Signal) -> Void)?
+    public init() {}
+    public func observe(_ handler: (@Sendable (Signal) -> Void)?) { lock.withLock { self.handler = handler } }
+    func emit(_ error: Error) {
+        guard APIError.isUpdateRequired(error) else { return }
+        let handler = lock.withLock { self.handler }
+        handler?(.updateRequired(minimumVersion: APIError.apiError(error)?.minimumVersion))
+    }
+}
+
+/// The remembered-device value, read by the sign-in middleware and replaced when a sign-in completes.
+public final class DeviceTrust: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: String?
+    private let storage: (any DeviceTrustStorage)?
+    public init(storage: (any DeviceTrustStorage)?) {
+        self.storage = storage
+        value = try? storage?.load()
+    }
+    public var current: String? { lock.withLock { value } }
+    /// A completed sign-in returns `device_trust`; an absent value keeps the remembered one.
+    public func remember(_ token: String?) {
+        guard let token, !token.isEmpty, token.utf8.count <= 512 else { return }
+        lock.withLock { value = token }
+        try? storage?.store(token)
+    }
+    /// Operations the unusual-sign-in check reads `X-Device-Trust` on (PRD §7, `device_memory.py`).
+    static let operations: Set<String> = [
+        "api_v1_auth_device_login_create", "api_v1_auth_social_google_create", "api_v1_auth_social_apple_create",
+        "api_v1_auth_social_oidc_create", "api_v1_auth_phone_login_confirm_create", "api_v1_auth_mfa_verify_create",
+        "api_v1_auth_mfa_confirm_create", "api_v1_auth_device_staff_grant_create", "api_v1_auth_login_code_resend_create"]
+}
+
+struct DeviceTrustMiddleware: ClientMiddleware {
+    let trust: DeviceTrust
+    func intercept(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String,
+                   next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)) async throws -> (HTTPResponse, HTTPBody?) {
+        var request = request
+        let name = HTTPField.Name("X-Device-Trust")!
+        request.headerFields[name] = DeviceTrust.operations.contains(operationID) ? trust.current : nil
+        return try await next(request, body, baseURL)
+    }
+}
+
+/// 0.12.0 `DeviceAttestationPayload` is an `anyOf` with one typed branch per proof. PRD §7: send
+/// App Attest through its own `app_attest` branch and development through `development`, never the
+/// open verifier branch (used only for an unrecognised deployment-specific proof).
 public enum DeviceAttestation {
     public static func payload(_ json: Data) throws -> Components.Schemas.DeviceAttestationPayload {
-        .init(value4: try JSONDecoder().decode(OpenAPIObjectContainer.self, from: json))
+        let object = try JSONSerialization.jsonObject(with: json) as? [String: Any] ?? [:]
+        switch object["type"] as? String {
+        case "app_attest":
+            guard let keyID = (object["key_id"] as? String).flatMap({ Data(base64Encoded: $0) }),
+                  let attestation = (object["attestation"] as? String).flatMap({ Data(base64Encoded: $0) }) else {
+                throw APIError(status: 0, code: "attestation_invalid", detail: APILocalCopy.text("This device could not prove the app's integrity. Try again."))
+            }
+            return .init(value2: .init(_type: .app_attest, key_id: .init(keyID), attestation: .init(attestation)))
+        case "development" where object.count == 1:
+            return .init(value3: .init(_type: .development))
+        default:
+            return .init(value4: try JSONDecoder().decode(OpenAPIObjectContainer.self, from: json))
+        }
     }
 }
 
@@ -101,7 +179,9 @@ public struct TokenPair: Sendable, Equatable, Codable {
 /// Credentials and installation epoch are captured atomically for each request.
 public struct CredentialSnapshot: Sendable {
     public let pair: TokenPair?
-    fileprivate let epoch: Int
+    let epoch: Int
+    /// The coordinator that issued it: a member snapshot never validates against the staff grant.
+    let owner: ObjectIdentifier
 }
 
 /// Late 401s may reuse a rotated pair only within the same installed session.
@@ -116,9 +196,9 @@ public actor RefreshCoordinator {
         self.pair = pair; self.rotate = rotate; self.persist = persist
     }
     public func current() -> TokenPair? { pair }
-    public func snapshot() -> CredentialSnapshot { CredentialSnapshot(pair: pair, epoch: generation) }
+    public func snapshot() -> CredentialSnapshot { CredentialSnapshot(pair: pair, epoch: generation, owner: ObjectIdentifier(self)) }
     public func isCurrent(_ snapshot: CredentialSnapshot) -> Bool { generation == snapshot.epoch && pair != nil }
-    public func isSameInstallation(_ snapshot: CredentialSnapshot) -> Bool { generation == snapshot.epoch }
+    public func isSameInstallation(_ snapshot: CredentialSnapshot) -> Bool { snapshot.owner == ObjectIdentifier(self) && generation == snapshot.epoch }
     public func install(_ value: TokenPair?) throws {
         generation += 1
         flight?.cancel()
@@ -144,8 +224,13 @@ public actor RefreshCoordinator {
                 return updated
             } catch {
                 if self.generation == generation {
-                    self.commit(nil)
-                    try? self.persist(nil)
+                    if APIError.isUpdateRequired(error) {
+                        // 426: nothing was rotated. Keep the pair so the updated app resumes this session.
+                        self.flight = nil
+                    } else {
+                        self.commit(nil)
+                        try? self.persist(nil)
+                    }
                 }
                 throw error
             }
@@ -176,7 +261,7 @@ public actor MakerspaceContext {
     }
 }
 
-private func checked(_ result: (HTTPResponse, HTTPBody?)) async throws -> (HTTPResponse, HTTPBody?) {
+func checked(_ result: (HTTPResponse, HTTPBody?)) async throws -> (HTTPResponse, HTTPBody?) {
     let (response, body) = result
     guard response.status.code >= 300 else { return result }
     let data = try await body.mapAsync { try await Data(collecting: $0, upTo: 1_048_576) }
@@ -185,6 +270,7 @@ private func checked(_ result: (HTTPResponse, HTTPBody?)) async throws -> (HTTPR
     let object = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
     let code = envelope?.code ?? object?["code"] as? String
     let detail = envelope?.detail ?? object?["detail"] as? String
+    let minimumVersion = (object?["minimum_version"] as? String).flatMap { $0.count <= 32 ? $0 : nil }
     var fieldMessages: [String] = []
     func collect(_ value: Any, path: String, depth: Int) {
         guard depth <= 8, fieldMessages.count < 50 else { return }
@@ -219,6 +305,7 @@ private func checked(_ result: (HTTPResponse, HTTPBody?)) async throws -> (HTTPR
     case 403: fallback = APILocalCopy.text("You do not have permission to do this.")
     case 404: fallback = APILocalCopy.text("This item wasn't found.")
     case 409: fallback = APILocalCopy.text("This changed. Refresh and try again.")
+    case 426: fallback = APILocalCopy.text("Update the app to continue.")
     case 429: fallback = APILocalCopy.text("Too many requests. Try again later.")
     case 503: fallback = APILocalCopy.text("The server is unavailable. Try again later.")
     default: fallback = APILocalCopy.text("Couldn't connect. Try again.")
@@ -227,7 +314,8 @@ private func checked(_ result: (HTTPResponse, HTTPBody?)) async throws -> (HTTPR
     if let detail, !detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { message = detail }
     else if response.status.code == 400, !fields.isEmpty { message = fields }
     else { message = fallback }
-    throw APIError(status: response.status.code, code: code ?? "http_\(response.status.code)", detail: message, retryAfter: retry)
+    throw APIError(status: response.status.code, code: code ?? (response.status.code == 426 ? "native_app_update_required" : "http_\(response.status.code)"),
+                   detail: message, retryAfter: retry, minimumVersion: minimumVersion)
 }
 
 private extension Optional {
@@ -237,16 +325,23 @@ private extension Optional {
     }
 }
 
-private struct ErrorMiddleware: ClientMiddleware {
+struct ErrorMiddleware: ClientMiddleware {
+    var signals: SessionSignals? = nil
     func intercept(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String,
                    next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)) async throws -> (HTTPResponse, HTTPBody?) {
-        try await checked(next(request, body, baseURL))
+        do { return try await checked(next(request, body, baseURL)) }
+        catch { signals?.emit(error); throw error }
     }
 }
 
-private enum DeviceRequestScope {
+/// Global account scope (no makerspace header): generated auth operations plus the account-wide
+/// username routes the `handle_required` step needs.
+let globalAccountOperations: Set<String> = ["api_v1_member_profile_handle_create", "api_v1_handles_check_retrieve"]
+
+enum DeviceRequestScope {
     @TaskLocal static var makerspace: Int?
     @TaskLocal static var credentials: CredentialSnapshot?
+    @TaskLocal static var staffCredentials: CredentialSnapshot?
     @TaskLocal static var pushMakerspace: Int?
     @TaskLocal static var globalAccount = false
 }
@@ -254,7 +349,11 @@ private enum DeviceRequestScope {
 public struct SessionMiddleware: ClientMiddleware {
     public let refresh: RefreshCoordinator
     public let makerspace: MakerspaceContext
+    var signals: SessionSignals? = nil
     public init(refresh: RefreshCoordinator, makerspace: MakerspaceContext) { self.refresh = refresh; self.makerspace = makerspace }
+    init(refresh: RefreshCoordinator, makerspace: MakerspaceContext, signals: SessionSignals) {
+        self.refresh = refresh; self.makerspace = makerspace; self.signals = signals
+    }
     public func intercept(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String,
                           next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)) async throws -> (HTTPResponse, HTTPBody?) {
         var request = request
@@ -270,13 +369,20 @@ public struct SessionMiddleware: ClientMiddleware {
                   await makerspace.authorizesPush(push) else { throw CancellationError() }
         }
         if DeviceRequestScope.globalAccount {
-            guard operationID.hasPrefix("api_v1_auth_"), DeviceRequestScope.pushMakerspace == nil else { throw CancellationError() }
+            guard operationID.hasPrefix("api_v1_auth_") || globalAccountOperations.contains(operationID),
+                  DeviceRequestScope.pushMakerspace == nil else { throw CancellationError() }
             request.headerFields[HTTPField.Name("X-Makerspace-Id")!] = nil
         } else {
             request.headerFields[HTTPField.Name("X-Makerspace-Id")!] = (DeviceRequestScope.pushMakerspace ?? DeviceRequestScope.makerspace ?? selected).map(String.init)
         }
+        do { return try await send(request, body: body, baseURL: baseURL, credentials: credentials, next: next) }
+        catch { signals?.emit(error); throw error }
+    }
+    private func send(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, credentials: CredentialSnapshot,
+                      next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)) async throws -> (HTTPResponse, HTTPBody?) {
+        var request = request
         let result = try await next(request, body, baseURL)
-        if result.0.status.code == 401, pair != nil {
+        if result.0.status.code == 401, credentials.pair != nil {
             let updated = try await refresh.recover(rejected: credentials)
             if let expected = DeviceRequestScope.makerspace, await makerspace.current() != expected { throw CancellationError() }
             if let push = DeviceRequestScope.pushMakerspace, !(await makerspace.authorizesPush(push)) { throw CancellationError() }
@@ -312,24 +418,52 @@ public enum DeviceSession {
 public final class SpaceWorksService: Sendable {
     let client: Client
     let publicClient: Client
+    /// The staff step-up grant's own client: its bearer and the grant's fixed `X-Makerspace-Id`.
+    let staffClient: Client
     public let refresh: RefreshCoordinator
     public let makerspace: MakerspaceContext
+    /// The staff grant coexists with the member grant (PRD §7 item 6) and refreshes on its own.
+    public let staffRefresh: RefreshCoordinator
+    public let staffScope: StaffGrantScope
+    public let signals = SessionSignals()
+    public let deviceTrust: DeviceTrust
+    /// Sent as `app_version` on login, social, phone, the staff step-up and refresh (426 gate).
+    public let appVersion: String?
     public init(origin: ServerOrigin, session: URLSession = DeviceSession.make(), initialTokens: TokenPair? = nil,
                 makerspace: MakerspaceContext = MakerspaceContext(),
-                persist: @escaping @Sendable (TokenPair?) throws -> Void = { _ in }) {
+                persist: @escaping @Sendable (TokenPair?) throws -> Void = { _ in },
+                appVersion: String? = nil, deviceTrust: (any DeviceTrustStorage)? = nil,
+                staffStorage: (any StaffGrantStorage)? = nil) {
         // Buffered mode keeps URLSession's session delegate in control of redirects. Streaming
         // transport installs its own task delegate and would bypass that guarantee.
         let transport = URLSessionTransport(configuration: .init(session: session, httpBodyProcessingMode: .buffered))
-        let raw = Client(serverURL: origin.url, transport: transport, middlewares: [ErrorMiddleware()])
+        let trust = DeviceTrust(storage: deviceTrust)
+        let signals = self.signals
+        let version = appVersion.flatMap { AppVersionField.valid($0) }
+        let raw = Client(serverURL: origin.url, configuration: ServerDateTranscoder.configuration, transport: transport, middlewares: [DeviceTrustMiddleware(trust: trust), ErrorMiddleware(signals: signals)])
         self.publicClient = raw
-        let coordinator = RefreshCoordinator(pair: initialTokens, persist: persist) { token in
-            let response = try await raw.api_v1_auth_device_refresh_create(.init(body: .json(.init(refresh: token))))
+        self.deviceTrust = trust
+        self.appVersion = version
+        let rotate: @Sendable (String) async throws -> TokenPair = { token in
+            let response = try await raw.api_v1_auth_device_refresh_create(.init(body: .json(.init(refresh: token, app_version: version))))
             let value = try response.ok.body.json
             return TokenPair(access: value.access, refresh: value.refresh)
         }
+        let coordinator = RefreshCoordinator(pair: initialTokens, persist: persist, rotate: rotate)
         self.refresh = coordinator
         self.makerspace = makerspace
-        self.client = Client(serverURL: origin.url, transport: transport, middlewares: [SessionMiddleware(refresh: coordinator, makerspace: makerspace)])
+        self.client = Client(serverURL: origin.url, configuration: ServerDateTranscoder.configuration, transport: transport,
+                             middlewares: [DeviceTrustMiddleware(trust: trust), SessionMiddleware(refresh: coordinator, makerspace: makerspace, signals: signals)])
+        let stored = try? staffStorage?.load()
+        let scope = StaffGrantScope(stored.map { ($0.makerspaceID, $0.makerspaceSlug) })
+        let staffCoordinator = RefreshCoordinator(pair: stored?.pair, persist: { pair in
+            let target = scope.current
+            try staffStorage?.store(pair.flatMap { pair in target.map { StaffGrantRecord(pair: pair, makerspaceID: $0.id, makerspaceSlug: $0.slug) } })
+        }, rotate: rotate)
+        self.staffScope = scope
+        self.staffRefresh = staffCoordinator
+        self.staffClient = Client(serverURL: origin.url, configuration: ServerDateTranscoder.configuration, transport: transport,
+                                  middlewares: [DeviceTrustMiddleware(trust: trust), StaffSessionMiddleware(refresh: staffCoordinator, scope: scope, signals: signals)])
     }
     public func health() async throws {
         let result = try await client.api_v1_health_retrieve()
@@ -395,23 +529,31 @@ public final class SpaceWorksService: Sendable {
         try await publicClient.api_v1_config_retrieve().ok.body.json
     }
     public func challenge(appID: String, development: Bool) async throws -> Components.Schemas.DeviceChallengeResponse {
-        let input = Components.Schemas.DeviceIdentity(platform: .apple, app_id: appID, environment: development ? .development : .production)
+        let input = Components.Schemas.DeviceIdentity(platform: "apple", app_id: appID, environment: development ? .development : .production)
         return try await publicClient.api_v1_auth_device_attestation_challenge_create(.init(body: .json(input))).ok.body.json
     }
+    /// A member grant by default. `staffMakerspace` asks for a staff grant fixed to that slug
+    /// (always answered with an MFA challenge, PRD §7 item 6).
     public func signIn(appID: String, development: Bool, username: String, password: String, challenge: String,
-                       attestationJSON: Data) async throws -> Components.Schemas.DeviceLoginResult {
-        let input = try Components.Schemas.DeviceLogin(platform: .apple, app_id: appID, environment: development ? .development : .production,
+                       attestationJSON: Data, staffMakerspace: String? = nil) async throws -> Components.Schemas.DeviceLoginResult {
+        let input = try Components.Schemas.DeviceLogin(platform: "apple", app_id: appID, environment: development ? .development : .production,
+            authority: staffMakerspace == nil ? nil : .init(value1: .staff), makerspace: staffMakerspace,
             username: username, password: password, challenge: challenge,
-            attestation: DeviceAttestation.payload(attestationJSON))
+            attestation: DeviceAttestation.payload(attestationJSON), app_version: appVersion)
         return try await publicClient.api_v1_auth_device_login_create(.init(body: .json(input))).ok.body.json
     }
     public func me() async throws -> Components.Schemas.AuthUserPayload {
         try await client.api_v1_auth_me_retrieve().ok.body.json
     }
-    public func verify(challenge: String, code: String, enrolling: Bool = false) async throws -> Components.Schemas.MFACompleted {
-        let input = Components.Schemas.MFAVerify(challenge: challenge, code: code)
+    /// `emailCode` answers an unusual-sign-in (`purpose: "risk"`) challenge with `factor: "email_code"`.
+    public func verify(challenge: String, code: String, enrolling: Bool = false, emailCode: Bool = false) async throws -> Components.Schemas.MFACompleted {
+        let input = Components.Schemas.MFAVerify(challenge: challenge, code: code, factor: emailCode ? .init(value1: .email_code) : nil)
         if enrolling { return try await publicClient.api_v1_auth_mfa_confirm_create(.init(body: .json(input))).ok.body.json }
         return try await publicClient.api_v1_auth_mfa_verify_create(.init(body: .json(input))).ok.body.json
+    }
+    /// Emails a fresh unusual-sign-in code for the same challenge (the server allows a few).
+    public func resendLoginCode(challenge: String) async throws -> Components.Schemas.LoginCodeResent {
+        try await publicClient.api_v1_auth_login_code_resend_create(.init(body: .json(.init(challenge: challenge)))).ok.body.json
     }
     public func enroll(challenge: String) async throws -> Components.Schemas.MFAEnrollment {
         try await publicClient.api_v1_auth_mfa_enroll_create(.init(body: .json(.init(challenge: challenge)))).ok.body.json
@@ -422,8 +564,9 @@ public final class SpaceWorksService: Sendable {
     public func changePassword(current: String, new: String) async throws {
         _ = try await client.api_v1_auth_change_password_create(.init(body: .json(.init(current_password: current, new_password: new)))).ok.body.json
     }
-    public func createAccount(name: String, email: String, password: String, phone: String) async throws {
-        let input = Components.Schemas.MemberSignUp(display_name: name, email: email, phone: phone, password: password, website: "")
+    public func createAccount(name: String, email: String, password: String, phone: String, handle: String? = nil) async throws {
+        let input = Components.Schemas.MemberSignUp(display_name: name, email: email, phone: phone, password: password, website: "",
+                                                    handle: handle?.isEmpty == false ? handle : nil)
         _ = try await publicClient.api_v1_auth_member_sign_up_create(.init(body: .json(input))).ok.body.json
     }
     public func requestPasswordReset(email: String) async throws {
@@ -438,5 +581,20 @@ public final class SpaceWorksService: Sendable {
     }
     public func resendEmailVerification() async throws {
         _ = try await client.api_v1_auth_email_verification_resend_create().ok.body.json
+    }
+}
+
+/// The server's date-times carry microseconds whenever the stored value has them (DRF ISO 8601), and
+/// sometimes a `+00:00` offset; the runtime's default transcoder rejects fractional seconds. Decode both,
+/// send without fractions.
+public struct ServerDateTranscoder: DateTranscoder {
+    public static let configuration = Configuration(dateTranscoder: ServerDateTranscoder())
+    private let fractional = ISO8601DateTranscoder(options: [.withInternetDateTime, .withFractionalSeconds])
+    private let whole = ISO8601DateTranscoder()
+    public init() {}
+    public func encode(_ date: Date) throws -> String { try whole.encode(date) }
+    public func decode(_ string: String) throws -> Date {
+        if let date = try? fractional.decode(string) { return date }
+        return try whole.decode(string)
     }
 }

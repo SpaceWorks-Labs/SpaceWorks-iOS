@@ -250,7 +250,7 @@ private struct AccountSessionsView: View {
             AccountFeedback(load: state.sessionsLoad) { await state.loadSessions() }
             ForEach(state.sessions, id: \.id) { row in
                 SWCard {
-                    Label(row.kind.rawValue == "device" ? "Device session" : "Browser session", systemImage: row.kind.rawValue == "device" ? "iphone" : "globe").brandFont(.headline)
+                    Label(row.kind == "device" ? "Device session" : "Browser session", systemImage: row.kind == "device" ? "iphone" : "globe").brandFont(.headline)
                     if row.current { Text("This session").foregroundStyle(Color.swAccentInk).brandFont(.headline) }
                     Text("Started \(row.created_at.formatted(date: .abbreviated, time: .shortened))").foregroundStyle(Color.swMuted)
                     if let last = row.last_used_at { Text("Last used \(last.formatted(date: .abbreviated, time: .shortened))").foregroundStyle(Color.swMuted) }
@@ -304,9 +304,9 @@ private struct AccountMembershipView: View {
             Text(state.makerspaceName).brandFont(.largeTitle, weight: .bold); AccountMessages(state: state)
             AccountFeedback(load: state.membershipLoad) { await state.loadMembership() }
             if let membership = state.membership {
-                Text(NativeStatusCopy.label(membership.status.rawValue)).brandFont(.headline)
+                Text(NativeStatusCopy.label(membership.status)).brandFont(.headline)
                 if let date = membership.renewal_cancelled_at { Text("Renewal cancelled \(date.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(Color.swMuted) }
-                if membership.status.rawValue == "active" {
+                if membership.status == "active" {
                     Text("Reason").brandFont(.headline)
                     TextField("Tell your makerspace why", text: $state.membershipReason, axis: .vertical).focused($reasonFocused).lineLimit(3...6).modifier(AccountInput()).disabled(state.busy).accessibilityIdentifier("account-membership-reason")
                     Text("Leaving ends your access to this makerspace. Outstanding loans or charges may need to be resolved first.").foregroundStyle(Color.swMuted)
@@ -349,13 +349,13 @@ private struct AccountExportsView: View {
             ForEach(state.exports, id: \.id) { row in
                 SWCard {
                     Text(row.created_at, format: .dateTime.day().month().year()).brandFont(.headline)
-                    Text(NativeStatusCopy.label(row.status.value1.rawValue)).foregroundStyle(Color.swMuted)
+                    Text(NativeStatusCopy.label(row.status.value1)).foregroundStyle(Color.swMuted)
                     if !row.failure_detail.isEmpty { SWError(message: row.failure_detail) }
                     TimelineView(.periodic(from: .now, by: 1)) { tick in
                     if state.canDownloadExport(row, at: tick.date) {
                         Text("Available until \(row.expires_at.formatted(date: .abbreviated, time: .shortened))").foregroundStyle(Color.swMuted)
                         Button("Download export") { Task { await state.downloadExport(row) } }.frame(minHeight: 48).disabled(!state.canRequest || state.downloading).accessibilityIdentifier("account-download-export")
-                    } else if ["pending", "running"].contains(row.status.value1.rawValue) {
+                    } else if ["pending", "running"].contains(row.status.value1) {
                         Button("Check export status") { Task { await state.refreshExport(row) } }.frame(minHeight: 48).disabled(!state.canRequest).accessibilityIdentifier("account-check-export")
                     } else if row.expires_at <= tick.date { Text("This export expired. Request a new archive.").foregroundStyle(Color.swMuted).accessibilityIdentifier("account-export-expired") }
                     }

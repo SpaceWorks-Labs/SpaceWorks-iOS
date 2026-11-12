@@ -179,23 +179,124 @@ def generate(raster=True):
     expected = json.loads((ROOT / "api/provenance.json").read_text())["sha256"]
     if hashlib.sha256(schema.read_bytes()).hexdigest() != expected:
         raise ValueError("API contract hash differs from its recorded provenance")
-    # Apple's generator models any multipart root component as a multipart enum. The supplied
-    # refresh schema references the SAME component for JSON and multipart; select its documented
-    # JSON representation so that DeviceRefresh remains a generated Codable object. No fields,
-    # operations or response schemas are changed, and the authoritative source stays untouched.
-    document = json.loads(schema.read_bytes())
-    for operations in document["paths"].values():
-        for operation in operations.values():
-            if not isinstance(operation, dict):
+    document = project_contract(json.loads(schema.read_bytes()), selected_operations())
+    write(ROOT / "Packages/SpaceWorksAPI/Sources/SpaceWorksAPI/openapi.json", json.dumps(document, ensure_ascii=False, indent=2) + "\n")
+
+
+GENERATOR_CONFIG = "Packages/SpaceWorksAPI/Sources/SpaceWorksAPI/openapi-generator-config.yaml"
+SCHEMA_REF = "#/components/schemas/"
+
+
+def selected_operations():
+    """The generator's operation allowlist (`filter.operations`), read without a YAML dependency."""
+    lines = (ROOT / GENERATOR_CONFIG).read_text(encoding="utf-8").splitlines()
+    return {match.group(1) for line in lines if (match := re.fullmatch(r"\s+- (api_v1_[a-z0-9_]+)\s*", line))}
+
+
+def schema_refs(node):
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith(SCHEMA_REF):
+            yield ref[len(SCHEMA_REF):]
+        for value in node.values():
+            yield from schema_refs(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from schema_refs(value)
+
+
+def closure(schemas, roots):
+    seen, pending = set(), list(roots)
+    while pending:
+        name = pending.pop()
+        if name in seen or name not in schemas:
+            continue
+        seen.add(name)
+        pending.extend(schema_refs(schemas[name]))
+    return seen
+
+
+def string_enum(node):
+    values = node.get("enum") if isinstance(node, dict) else None
+    if not isinstance(values, list) or node.get("type", "string") != "string":
+        return False
+    texts = [value for value in values if value is not None]
+    return bool(texts) and all(isinstance(value, str) for value in texts)
+
+
+def open_enums(node, opened):
+    """Drop closed string `enum` lists and collapse unions of opened enums to one string."""
+    if isinstance(node, list):
+        for value in node:
+            open_enums(value, opened)
+        return
+    if not isinstance(node, dict):
+        return
+    if string_enum(node):
+        nullable = None in node["enum"] or node.get("nullable") is True
+        del node["enum"]
+        node["type"] = "string"
+        if nullable:
+            node["nullable"] = True
+    for union in ("oneOf", "anyOf"):
+        branches = node.get(union)
+        if isinstance(branches, list) and branches and all(
+                isinstance(branch, dict) and set(branch) == {"$ref"} and branch["$ref"][len(SCHEMA_REF):] in opened
+                for branch in branches) and any(opened[branch["$ref"][len(SCHEMA_REF):]] is not None for branch in branches):
+            del node[union]
+            node["type"] = "string"
+            if any(opened[branch["$ref"][len(SCHEMA_REF):]] is not False for branch in branches):
+                node["nullable"] = True
+    for value in node.values():
+        open_enums(value, opened)
+
+
+def project_contract(document, operations):
+    """Mechanical build projection of the authoritative schema; the source file stays untouched.
+
+    1. Keep only the selected operations and the schemas they reach (the generator's own filter
+       does the same; pruning keeps the 17 MB contract fast to parse at build time).
+    2. Apple's generator models any multipart root component as a multipart enum. Select the
+       documented JSON request representation, or the no-body form of an optional body whose
+       content declares schema keys instead of media types.
+    3. PRD §7: treat an unknown enum value as "other" instead of failing to decode. Apple's
+       generator emits closed `@frozen` enums, so every string enum reachable from a selected
+       operation's responses is opened to a plain string; the app maps the values it acts on in
+       hand-written wrappers. Request-only enums stay closed.
+    """
+    paths = {}
+    for path, operations_at in document["paths"].items():
+        kept = {method: operation for method, operation in operations_at.items()
+                if isinstance(operation, dict) and operation.get("operationId") in operations}
+        if kept:
+            shared = {key: value for key, value in operations_at.items() if key == "parameters"}
+            paths[path] = {**shared, **kept}
+    missing = operations - {op["operationId"] for ops in paths.values() for op in ops.values() if isinstance(op, dict) and "operationId" in op}
+    if missing:
+        raise ValueError(f"Selected operations are absent from the contract: {sorted(missing)}")
+    document["paths"] = paths
+    for operations_at in paths.values():
+        for operation in operations_at.values():
+            if not isinstance(operation, dict) or "requestBody" not in operation:
                 continue
-            content = operation.get("requestBody", {}).get("content", {})
+            content = operation["requestBody"].get("content", {})
             if "application/json" in content:
                 operation["requestBody"]["content"] = {"application/json": content["application/json"]}
             elif content and not any("/" in media for media in content) and not operation["requestBody"].get("required", False):
-                # A few optional empty POST bodies use schema keys instead of media types.
-                # Select their documented no-body form; preserve the immutable source and every DTO.
                 del operation["requestBody"]
-    write(ROOT / "Packages/SpaceWorksAPI/Sources/SpaceWorksAPI/openapi.json", json.dumps(document, ensure_ascii=False, indent=2) + "\n")
+    schemas = document["components"]["schemas"]
+    document["components"]["schemas"] = {name: schemas[name] for name in sorted(closure(schemas, schema_refs(paths)))}
+    schemas = document["components"]["schemas"]
+    responses = [operation.get("responses", {}) for ops in paths.values() for operation in ops.values() if isinstance(operation, dict)]
+    reachable = closure(schemas, schema_refs(responses))
+    # name -> nullable (True/False); a null-only enum (`NullEnum`) maps to None: it only marks a union nullable.
+    opened = {name: None in schemas[name]["enum"] for name in reachable if string_enum(schemas[name])}
+    opened.update({name: None for name in reachable if schemas[name].get("enum") == [None]})
+    for name in sorted(reachable):
+        open_enums(schemas[name], opened)
+    for response in responses:
+        open_enums(response, opened)
+    return document
 
 
 if __name__ == "__main__":

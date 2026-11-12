@@ -1,0 +1,14 @@
+{
+  "count": 1,
+  "results": [
+    {
+      "display_name": "Day pass guest",
+      "is_guest_pass": true,
+      "is_walk_in": false,
+      "membership_id": null,
+      "pass_valid_until": "2026-11-12T18:29:59.123456+00:00",
+      "user_id": 52,
+      "username": "guest52"
+    }
+  ]
+}

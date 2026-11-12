@@ -10,7 +10,7 @@ class AccountFixturesTests(test_staff_fixtures.StaffFixturesTests):
     models = {
         "sessions": "AccountSessionPage", "membership": "MembershipAccount", "mfa": "MFAStatus",
         "challenge": "MFAChallengeResponse", "recovery": "MFARecovery", "provider": "SocialIdentity", "export": "SubjectExport",
-        "grants": {"type": "array", "items": {"$ref": "#/components/schemas/DeviceGrant"}},
+        "grants": "DeviceGrantPage",
     }
 
     def test_sample_archive_is_a_valid_zip_containing_only_explicit_demo_data(self):

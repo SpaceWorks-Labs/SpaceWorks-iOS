@@ -15,7 +15,7 @@ private enum PaymentFixture {
         """
         {"id":501,"subject_type":"loan_deposit","subject_label":"Equipment deposit","status":"\(status)","amount":"250.00",
         "currency":"inr","due_at":null,"due_date":"2026-10-20","due_state":"upcoming","checkout_url":"",
-        "online_payment_available":\(online),"settlement":null,"refunded_amount":0,"refunds":[],"created_at":"2026-10-16T09:00:00Z"}
+        "online_payment_available":\(online),"settlement":null,"refunded_amount":0,"refunds":[],"refund_case":null,"refund_requestable":false,"offline_collection":{"claim":null,"claimable":false,"instructions":"","instructions_unit":null,"upi":null},"created_at":"2026-10-16T09:00:00Z"}
         """
     }
     static let documents = #"{"count":0,"next":null,"previous":null,"results":[]}"#
@@ -126,7 +126,7 @@ private actor PaymentTestRepository: PaymentRepository {
             let intents = await repository.intentCalls; XCTAssertEqual(intents, 1)
             await repository.clearFailure(); await state.refresh()
             XCTAssertFalse(state.requiresStatusRefresh(501)); XCTAssertTrue(state.canPay(try XCTUnwrap(state.record(501))))
-            XCTAssertEqual(state.record(501)?.status?.rawValue, "pending")
+            XCTAssertEqual(state.record(501)?.status, "pending")
         }
     }
     func testConcurrentDocumentThrottleStopsNextSubmittedPaymentPollUntilDeadline() async throws {
@@ -153,7 +153,7 @@ private actor PaymentTestRepository: PaymentRepository {
         let (attempt, _) = try XCTUnwrap(prepared)
         await state.finishSDK(.awaitingServerConfirmation, attempt: attempt, paymentID: 501)
         XCTAssertEqual(state.checkout, .awaiting(501))
-        XCTAssertEqual(state.record(501)?.status?.rawValue, "pending")
+        XCTAssertEqual(state.record(501)?.status, "pending")
         let polls = await repository.listCalls
         XCTAssertEqual(polls, 6) // Initial load, fresh checkout authorization, four bounded reconciliation reads.
         XCTAssertFalse(state.canPay(try XCTUnwrap(state.record(501))))
@@ -167,7 +167,7 @@ private actor PaymentTestRepository: PaymentRepository {
         try await repository.configure(status: "paid_online")
         await state.finishSDK(.cancelled, attempt: attempt, paymentID: 501)
         XCTAssertEqual(state.checkout, .completed(501))
-        XCTAssertEqual(state.record(501)?.status?.rawValue, "paid_online")
+        XCTAssertEqual(state.record(501)?.status, "paid_online")
         let documentCalls = await repository.documentCalls
         XCTAssertEqual(documentCalls, 1)
     }
@@ -187,7 +187,7 @@ private actor PaymentTestRepository: PaymentRepository {
     }
     func testDocumentsFollowActualNextPageAndMergeDuplicateIDsOnlyOnce() async throws {
         let repository = try PaymentTestRepository()
-        let first = #"{"id":901,"payment":501,"number":"R1","kind":"receipt","issued_at":"2026-10-16T09:00:00Z","money_at":"2026-10-16T09:00:00Z","amount":"250.00","currency":"inr"}"#
+        let first = #"{"id":901,"payment":501,"number":"R1","kind":"receipt","status":"issued","issued_at":"2026-10-16T09:00:00Z","money_at":"2026-10-16T09:00:00Z","amount":"250.00","currency":"inr"}"#
         let second = first.replacingOccurrences(of: "901", with: "902")
         try await repository.configureDocuments(page: 1, json: "{\"count\":2,\"next\":\"https://spaceworks.example/api/v1/member/makerspaces/7/payment-documents?page=3\",\"previous\":null,\"results\":[\(first)]}")
         try await repository.configureDocuments(page: 3, json: "{\"count\":2,\"next\":null,\"previous\":null,\"results\":[\(first),\(second)]}")
@@ -206,7 +206,7 @@ private actor PaymentTestRepository: PaymentRepository {
         try await repository.configure(status: "waived")
         let result = await state.prepareCheckout(paymentID: 501)
         XCTAssertNil(result)
-        XCTAssertEqual(state.record(501)?.status?.rawValue, "waived")
+        XCTAssertEqual(state.record(501)?.status, "waived")
         let intents = await repository.intentCalls
         XCTAssertEqual(intents, 0)
     }
@@ -286,9 +286,9 @@ private actor PaymentTestRepository: PaymentRepository {
         await first.simulate(paymentID: 501, scenario: .paid)
         let firstRows = try await session.paymentRepository(for: 7).payments()
         let secondRows = try await second.payments()
-        XCTAssertEqual(firstRows.first?.status?.rawValue, "paid_online"); XCTAssertEqual(secondRows.first?.status?.rawValue, "pending")
+        XCTAssertEqual(firstRows.first?.status, "paid_online"); XCTAssertEqual(secondRows.first?.status, "pending")
         session.reset()
-        let reset = try await session.paymentRepository(for: 7).payments(); XCTAssertEqual(reset.first?.status?.rawValue, "pending")
+        let reset = try await session.paymentRepository(for: 7).payments(); XCTAssertEqual(reset.first?.status, "pending")
     }
     func testDemoPaymentsUseIsolatedFixtureAndNeverRequestAnSDKIntent() async throws {
         let state = PaymentsState(repository: DemoPaymentRepository(), isDemo: true, sleep: { _ in })
@@ -297,7 +297,7 @@ private actor PaymentTestRepository: PaymentRepository {
         XCTAssertNil(actualIntent)
         await state.simulateDemo(paymentID: 501, scenario: .paid)
         XCTAssertEqual(state.checkout, .completed(501))
-        XCTAssertEqual(state.record(501)?.status?.rawValue, "paid_online")
+        XCTAssertEqual(state.record(501)?.status, "paid_online")
         XCTAssertTrue(state.documents.contains { $0.payment == 501 })
         if let document = state.documents.first {
             await state.openDocument(document)

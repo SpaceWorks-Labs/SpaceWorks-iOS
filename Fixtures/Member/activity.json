@@ -22,7 +22,8 @@
     "dues_amount": "250.00",
     "outstanding_by_currency": {
       "INR": "250.00"
-    }
+    },
+    "dues_currency": ""
   },
   "notices": [
     {
@@ -39,7 +40,8 @@
       "item_count": 2,
       "returned_quantity": 0,
       "damaged_quantity": 0,
-      "missing_quantity": 0
+      "missing_quantity": 0,
+      "id": 0
     }
   ],
   "event_registrations": [

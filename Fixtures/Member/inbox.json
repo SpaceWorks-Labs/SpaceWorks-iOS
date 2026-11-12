@@ -11,17 +11,21 @@
       "summary": "Collect your kit at the front desk.",
       "link": "/activity",
       "read_at": null,
-      "created_at": "2026-10-16T09:00:00Z"
+      "created_at": "2026-10-16T09:00:00Z",
+      "archived_on": null,
+      "snoozed_until": null
     },
     {
       "id": 2,
       "feature": "events",
       "event": "registration_confirmed",
-      "title": "You\u2019re on the guest list",
+      "title": "You’re on the guest list",
       "summary": "Make your first circuit starts on 20 October.",
       "link": "/activity/events",
       "read_at": "2026-10-16T08:00:00Z",
-      "created_at": "2026-10-15T09:00:00Z"
+      "created_at": "2026-10-15T09:00:00Z",
+      "archived_on": null,
+      "snoozed_until": null
     }
   ]
 }

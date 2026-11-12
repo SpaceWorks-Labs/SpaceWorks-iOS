@@ -10,6 +10,7 @@
     "approval_mode": "instant",
     "custom_form": null,
     "show_public_availability": true,
-    "show_public_booker_names": false
+    "show_public_booker_names": false,
+    "photos": []
   }
 ]

@@ -123,6 +123,8 @@ struct MemberBookingDetailView: View {
     @State private var confirmation = false
     @State private var active = true
     @State private var retryAfter: Date?
+    @State private var reschedule: BookingRescheduleState?
+    @State private var confirmReschedule = false
     private var current: Components.Schemas.MemberBooking { updated ?? booking }
     var body: some View {
         ScrollView {
@@ -131,7 +133,7 @@ struct MemberBookingDetailView: View {
                 Text(current.space_name).brandFont(.largeTitle, weight: .bold)
                 Text(intervalLabel(current.starts_at, current.ends_at, timezone: current.timezone))
                 Text(current.timezone).brandFont(.caption).foregroundStyle(Color.swMuted)
-                Text(NativeStatusCopy.label(current.status.value1.rawValue)).brandFont(.headline)
+                Text(NativeStatusCopy.label(current.status.value1)).brandFont(.headline)
                 Text("Booking reference").brandFont(.headline); Text(current.public_token).brandFont(.body, weight: .medium).monospacedDigit().textSelection(.enabled)
                 if let error { SWError(message: error) }
                 if current.can_cancel {
@@ -141,8 +143,26 @@ struct MemberBookingDetailView: View {
                             .disabled(busy || (retryAfter ?? .distantPast) > tick.date)
                     }
                 } else { Text("Cancellation isn't available for this booking.").foregroundStyle(Color.swMuted) }
+                if current.can_cancel, !isDemo, let reschedule {
+                    Text("Change the time").brandFont(.headline)
+                    DatePicker("Starts", selection: Bindable(reschedule).start).frame(minHeight: 48)
+                    DatePicker("Ends", selection: Bindable(reschedule).end).frame(minHeight: 48)
+                    if let message = reschedule.error { SWError(message: message) }
+                    Button(reschedule.busy ? "Rescheduling…" : "Reschedule booking") { confirmReschedule = true }
+                        .frame(minHeight: 48).disabled(reschedule.busy || busy || !reschedule.valid).accessibilityIdentifier("booking-reschedule")
+                }
             }.padding(24).frame(maxWidth: 640).frame(maxWidth: .infinity)
         }.background(Color.swBg).navigationTitle("Booking details").navigationBarBackButtonHidden(busy).onDisappear { active = false }
+            .task(id: current.public_token) { reschedule = BookingRescheduleState(booking: current, repository: repository) }
+            .confirmationDialog("Change this booking?", isPresented: $confirmReschedule, titleVisibility: .visible) {
+                Button("Reschedule booking") {
+                    Task {
+                        guard let reschedule, await reschedule.reschedule(), active, let value = reschedule.updated else { return }
+                        updated = value; await completed()
+                    }
+                }
+                Button("Keep booking", role: .cancel) {}
+            } message: { Text("The server will check the new time before changing your booking.") }
             .confirmationDialog("Cancel this booking?", isPresented: $confirmation, titleVisibility: .visible) {
                 Button("Cancel booking", role: .destructive) { Task { await cancel() } }
                 Button("Keep booking", role: .cancel) {}

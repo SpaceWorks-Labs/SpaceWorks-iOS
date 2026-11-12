@@ -233,7 +233,7 @@ final class NetworkingTests: XCTestCase {
         session.invalidateAndCancel()
     }
 
-    private static let rotated = #"{"access":"new-access","refresh":"new-refresh","device_grant":{"id":"0c20b5af-5915-4d3d-8d4b-165b16874076","platform":"ios","app_id":"org.spaceworks.app","environment":"development","status":"active","attested_at":"2026-10-16T00:00:00Z","last_used_at":"2026-10-16T00:00:00Z","created_at":"2026-10-16T00:00:00Z"}}"#
+    private static let rotated = #"{"access":"new-access","refresh":"new-refresh","device_grant":{"id":"0c20b5af-5915-4d3d-8d4b-165b16874076","platform":"ios","app_id":"org.spaceworks.app","environment":"development","status":"active","attested_at":"2026-10-16T00:00:00Z","last_used_at":"2026-10-16T00:00:00Z","created_at":"2026-10-16T00:00:00Z","authority":"member","staff_makerspace_id":null,"login_method":"password"}}"#
 }
 
 private final class LockedCounter: @unchecked Sendable {

@@ -1,0 +1,71 @@
+{
+  "display_name": "Meera Nair",
+  "effective_locale": "en",
+  "email": "meera@example.test",
+  "email_verified": true,
+  "handle": "meera",
+  "handle_required": false,
+  "handle_suggestion": null,
+  "has_elevated_authority": false,
+  "has_organizations": false,
+  "has_staff_role": true,
+  "id": 12,
+  "is_platform": false,
+  "is_superuser": false,
+  "kind": "person",
+  "makerspaces": [
+    {
+      "actions": [
+        "submit_request"
+      ],
+      "can_configure_machine_types": false,
+      "can_refer": false,
+      "can_verify": false,
+      "id": 7,
+      "is_machine_only": false,
+      "referrals_enabled": false,
+      "role": "member",
+      "role_id": null,
+      "role_ids": [],
+      "role_name": "Member",
+      "role_names": [],
+      "role_slug": null,
+      "role_slugs": [],
+      "slug": "fab-lab-kochi",
+      "source": "membership",
+      "tracks": [
+        "community"
+      ],
+      "verified_at": null,
+      "name": "Fab Lab Kochi",
+      "status": "active"
+    }
+  ],
+  "merge_suggested": false,
+  "mfa_enrolment_due": false,
+  "mfa_grace_ends_at": null,
+  "must_change_password": false,
+  "phone": "",
+  "preferred_locale": null,
+  "role": "member",
+  "session_authority": "member",
+  "staff_roles": [],
+  "superadmin_actions": [],
+  "supported_locales": [],
+  "username": "meera",
+  "event_grants": [
+    {
+      "event_id": 801,
+      "makerspace_id": 7,
+      "makerspace_slug": "",
+      "permissions": [
+        "judge",
+        "mentor_queue",
+        "check_in"
+      ],
+      "series_id": null,
+      "source": "event_grant",
+      "title": "Sample hackathon"
+    }
+  ]
+}

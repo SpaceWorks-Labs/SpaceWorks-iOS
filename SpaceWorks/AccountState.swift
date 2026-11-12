@@ -299,7 +299,7 @@ final class AccountState {
     private func changeMembership(leave: Bool) async {
         let reason = membershipReason.trimmingCharacters(in: .whitespacesAndNewlines)
         guard memberSelfServiceAvailable else { error = String(localized: "Membership self-service isn't available for this account."); return }
-        guard canRequest, membership?.status.rawValue == "active", !reason.isEmpty, reason.count <= 1000 else { error = String(localized: "Add a reason of up to 1,000 characters."); return }
+        guard canRequest, membership?.status == "active", !reason.isEmpty, reason.count <= 1000 else { error = String(localized: "Add a reason of up to 1,000 characters."); return }
         membershipGeneration += 1; let generation = membershipGeneration; membershipLoad = .ready
         busy = true; error = nil; notice = nil; defer { if active { busy = false } }
         do {
@@ -314,7 +314,7 @@ final class AccountState {
             }
             else { result = try await repository.cancelRenewal(reason: reason) }
             guard active else { return }
-            if result.status.rawValue == "revoked" { invalidate(); await membershipEnded(); return }
+            if result.status == "revoked" { invalidate(); await membershipEnded(); return }
             guard generation == membershipGeneration, memberSelfServiceAvailable else { return }
             membership = result; membershipReason = ""; busy = false
             if !leave && result.renewal_cancelled_at != nil { notice = String(localized: "Membership renewal cancelled.") }
@@ -343,7 +343,7 @@ final class AccountState {
     }
     func canDownloadExport(_ row: Components.Schemas.SubjectExport, at date: Date? = nil) -> Bool {
         guard dataExportAvailable, active, let current = exports.first(where: { $0.id == row.id }) else { return false }
-        return current.status.value1.rawValue == "available" && current.expires_at > (date ?? now())
+        return current.status.value1 == "available" && current.expires_at > (date ?? now())
     }
     func downloadExport(_ row: Components.Schemas.SubjectExport) async {
         guard dataExportAvailable, canRequest, !downloading, let current = exports.first(where: { $0.id == row.id }) else { return }

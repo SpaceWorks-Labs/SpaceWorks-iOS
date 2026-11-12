@@ -33,7 +33,7 @@ class CapabilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory).resolve()
             inputs = json.loads((ROOT / "branding/brand.json").read_text(encoding="utf-8"))
-            files = ["branding/brand.json", "api/openapi.json", "api/provenance.json", "tokens/mobile-motion.json", inputs["theme_tokens"], inputs["app_icon"]]
+            files = ["branding/brand.json", "api/openapi.json", "api/provenance.json", "tokens/mobile-motion.json", "Packages/SpaceWorksAPI/Sources/SpaceWorksAPI/openapi-generator-config.yaml", inputs["theme_tokens"], inputs["app_icon"]]
             files += [value for key, value in inputs.items() if key.startswith("logo_") and value is not None]
             shutil.copytree(ROOT / "design/logo", root / "design/logo")
             for relative in dict.fromkeys(files):

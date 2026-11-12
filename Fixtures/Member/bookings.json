@@ -12,7 +12,13 @@
       "status": "confirmed",
       "cancellation_cutoff_at": "2026-10-19T09:00:00Z",
       "can_cancel": true,
-      "confirmation_available": false
+      "confirmation_available": false,
+      "can_checkout": false,
+      "decision_reason": "",
+      "departed_at": null,
+      "departure_outcome": null,
+      "hosts_event": null,
+      "machine_time": false
     }
   ]
 }

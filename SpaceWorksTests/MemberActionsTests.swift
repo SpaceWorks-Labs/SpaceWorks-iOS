@@ -85,10 +85,10 @@ import SpaceWorksAPI
             await repository.preview(scenario)
             let state = EventRegistrationState(repository: repository, event: event)
             await state.submit()
-            XCTAssertEqual(state.result?.status.value1.rawValue, scenario == .pending ? "pending_approval" : scenario == .waitlisted ? "waitlisted" : "registered")
+            XCTAssertEqual(state.result?.status.value1, scenario == .pending ? "pending_approval" : scenario == .waitlisted ? "waitlisted" : "registered")
             let reader = DemoMemberRepository(store: store); let activity = try await reader.activity()
             let registration = try XCTUnwrap(activity.event_registrations?.first { $0.registration_id == 777 })
-            XCTAssertEqual(registration.status, state.result?.status.value1.rawValue)
+            XCTAssertEqual(registration.status, state.result?.status.value1)
             if scenario == .success {
                 let qr = try await repository.eventQR(registration: registration.registration_id); XCTAssertNotNil(NativeQRSVG.image(qr))
             } else {
@@ -126,7 +126,7 @@ import SpaceWorksAPI
     }
     func testDisabledDigestFeatureDoesNotPreventOptionalChannelUpdates() async throws {
         let state = CommunicationPreferencesState(repository: DemoMemberActionsRepository())
-        await state.load(); let email = try XCTUnwrap(state.cells.first { $0.channel.rawValue == "email" })
+        await state.load(); let email = try XCTUnwrap(state.cells.first { $0.channel == "email" })
         state.digestsAllowed = false
         await state.digest(email, enabled: true)
         XCTAssertEqual(state.cells.first?.daily_digest, false)

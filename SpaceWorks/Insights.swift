@@ -56,7 +56,7 @@ struct StaffGlance: Equatable, Sendable {
             [("ready_to_issue", tiles.ready_to_issue), ("due_returns", tiles.due_returns), ("pickups", tiles.pickups)]
                 .compactMap { key, count in count.map { StaffCounter(key: key, value: $0) } }
         } ?? []
-        let handover = value.scope_mode == .handover
+        let handover = value.scope_mode == "handover"
         let widgets = handover ? [] : (value.widgets ?? []).map { widget in
             StaffWidget(key: widget.key, title: widget.title,
                         headline: ["count", "total", "value"].lazy.compactMap { UsageSeries.text(widget.data.additionalProperties[$0]) }.first { Double($0) != nil })
@@ -106,6 +106,18 @@ struct LiveInsightsRepository: InsightsRepository {
     let makerspaceID: Int
     var onUnauthorized: @Sendable (String) async -> Void = { _ in }
     var onForbidden: @Sendable () async -> Void = {}
+    /// The staff dashboard is a staff route: it travels on the staff step-up grant.
+    var staffCredentials: CredentialSnapshot? = nil
+    var onStaffRefused: @Sendable (String) async -> Void = { _ in }
+    private func staffChecked<T: Sendable>(_ work: @Sendable () async throws -> T) async throws -> T {
+        guard let staffCredentials else { throw APIError(status: 403, code: "staff_access_required", detail: String(localized: "Open staff tools to see this.")) }
+        do { return try await service.withStaffGrant(expectedCredentials: staffCredentials, makerspaceID: makerspaceID, operation: work) }
+        catch {
+            if Task.isCancelled || APIError.isCancellation(error) { throw error }
+            if APIError.status(error) == 401 { await onStaffRefused(APIError.display(error)) }
+            throw error
+        }
+    }
     private func checked<T: Sendable>(_ work: @Sendable () async throws -> T) async throws -> T {
         guard let expectedCredentials, await service.refresh.isSameInstallation(expectedCredentials) else { throw CancellationError() }
         do { return try await service.withMakerspace(makerspaceID, expectedCredentials: expectedCredentials, operation: work) }
@@ -119,7 +131,7 @@ struct LiveInsightsRepository: InsightsRepository {
         }
     }
     func usage() async throws -> Components.Schemas.MemberUsage { try await checked { try await service.memberUsage(makerspaceID: makerspaceID) } }
-    func dashboard() async throws -> Components.Schemas.Dashboard { try await checked { try await service.staffDashboard(makerspaceID: makerspaceID) } }
+    func dashboard() async throws -> Components.Schemas.Dashboard { try await staffChecked { try await service.staffDashboard(makerspaceID: makerspaceID) } }
     func messaging() async throws -> Components.Schemas.MemberMessaging { try await checked { try await service.messagingConsent(makerspaceID: makerspaceID) } }
     func consent(channel: Components.Schemas.Channel06eEnum, optIn: Bool) async throws -> Components.Schemas.MemberMessaging {
         try await checked { try await service.setMessagingConsent(makerspaceID: makerspaceID, channel: channel, optIn: optIn) }

@@ -17,3 +17,10 @@
 "Too many requests. Try again later." = "Too many requests. Try again later.";
 "Use the web console" = "Use the web console";
 "You do not have permission to do this." = "You do not have permission to do this.";
+"Your session has ended. Sign in again." = "Your session has ended. Sign in again.";
+"Update the app to continue." = "Update the app to continue.";
+"You don't have a staff role in that makerspace." = "You don't have a staff role in that makerspace.";
+"That code isn't valid. Check your email for the latest code." = "That code isn't valid. Check your email for the latest code.";
+"Choose a username to continue." = "Choose a username to continue.";
+"This device could not prove the app's integrity. Try again." = "This device could not prove the app's integrity. Try again.";
+"Open staff tools again to continue." = "Open staff tools again to continue.";

@@ -29,7 +29,7 @@ final class EventRegistrationState {
         guard phone.count <= 64, invite.count <= 128, promo.count <= 128 else { error = String(localized: "Check your contact details and codes, then try again."); return }
         let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedEmail.isEmpty || (normalizedEmail.contains("@") && !normalizedEmail.contains(where: { $0.isWhitespace })) else { error = String(localized: "Enter a valid email address."); return }
-        guard event.registration_audience.value1 != .invite || !invite.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { error = String(localized: "Enter your invitation code."); return }
+        guard event.registration_audience.value1 != "invite" || !invite.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { error = String(localized: "Enter your invitation code."); return }
         guard let answers = form.validatedAnswers() else { error = form.unavailable ? String(localized: "This form isn't supported in the app yet.") : String(localized: "Check the highlighted questions."); return }
         var body: [String: Any] = ["custom_answers": answers]
         for (key, value) in [("phone", phone), ("email", email), ("invite_code", invite), ("promo_code", promo)] where !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

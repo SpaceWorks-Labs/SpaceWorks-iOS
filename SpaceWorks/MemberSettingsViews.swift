@@ -81,12 +81,12 @@ struct CommunicationPreferencesView: View {
                 } else if state.cells.isEmpty { SWCard { Text("Nothing here yet.").foregroundStyle(Color.swMuted) } }
                 ForEach(Array(state.cells.enumerated()), id: \.offset) { _, cell in
                     SWCard {
-                        Text(NativeStatusCopy.label(cell.feature.rawValue)).brandFont(.headline)
+                        Text(NativeStatusCopy.label(cell.feature)).brandFont(.headline)
                         TimelineView(.periodic(from: .now, by: 1)) { tick in
-                            Toggle(channel(cell.channel.rawValue), isOn: Binding(get: { cell.enabled }, set: { value in Task { await state.set(cell, enabled: value) } }))
-                                .accessibilityIdentifier("preference-\(cell.feature.rawValue)-\(cell.channel.rawValue)")
+                            Toggle(channel(cell.channel), isOn: Binding(get: { cell.enabled }, set: { value in Task { await state.set(cell, enabled: value) } }))
+                                .accessibilityIdentifier("preference-\(cell.feature)-\(cell.channel)")
                                 .frame(minHeight: 48).disabled(state.busy || (!cell.available && !cell.enabled) || (state.retryAfter ?? .distantPast) > tick.date)
-                            if digestsEnabled, cell.channel.rawValue == "email", let digest = cell.daily_digest {
+                            if digestsEnabled, cell.channel == "email", let digest = cell.daily_digest {
                                 Toggle("Daily email digest", isOn: Binding(get: { digest }, set: { value in Task { await state.digest(cell, enabled: value) } }))
                                     .frame(minHeight: 48).disabled(state.busy || !cell.available || !cell.enabled || (state.retryAfter ?? .distantPast) > tick.date)
                             }

@@ -37,6 +37,7 @@ struct LiveMemberRepository: MemberRepository {
     func events() async throws -> [Components.Schemas.PublicEvent] { try await checked { try await service.memberEvents(slug: slug) } }
     func spaces() async throws -> [Components.Schemas.PublicBookableSpace] { try await checked { try await service.memberSpaces(slug: slug) } }
     func card() async throws -> Components.Schemas.OwnMemberCard { try await checked { try await service.memberCard(id: id) } }
+    func updateCardName(_ name: String) async throws -> Components.Schemas.MemberCard { try await checked { try await service.updateMemberCard(id: id, printedName: name) } }
     func inbox(page: Int, unread: Bool) async throws -> Components.Schemas.InboxPage {
         let result = try await checked { try await service.memberInbox(id: id, page: page, unread: unread) }
         _ = try origin.nextPage(result.next)

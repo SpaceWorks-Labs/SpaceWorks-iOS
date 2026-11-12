@@ -13,6 +13,10 @@ filter:
     - api_v1_auth_mfa_verify_create
     - api_v1_auth_mfa_enroll_create
     - api_v1_auth_mfa_confirm_create
+    - api_v1_auth_login_code_resend_create
+    - api_v1_auth_device_staff_grant_create
+    - api_v1_handles_check_retrieve
+    - api_v1_member_profile_handle_create
     - api_v1_config_retrieve
     - api_v1_auth_change_password_create
     - api_v1_auth_member_sign_up_create
@@ -22,6 +26,7 @@ filter:
     - api_v1_auth_email_verification_resend_create
     - api_v1_member_makerspaces_activity_retrieve
     - api_v1_member_makerspaces_member_card_retrieve
+    - api_v1_member_makerspaces_member_card_partial_update
     - api_v1_notifications_inbox_retrieve
     - api_v1_notifications_inbox_read_create
     - api_v1_notifications_inbox_read_all_create
@@ -38,6 +43,8 @@ filter:
     - api_v1_public_spaces_availability_retrieve
     - api_v1_public_spaces_book_create
     - api_v1_public_my_bookings_cancel_create
+    - api_v1_public_my_bookings_reschedule_create
+    - api_v1_public_requests_status_retrieve
     - api_v1_public_events_register_create
     - api_v1_member_makerspaces_event_registrations_cancel_create
     - api_v1_member_makerspaces_event_registrations_qr_retrieve

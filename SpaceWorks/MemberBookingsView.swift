@@ -17,7 +17,7 @@ struct MemberBookingsView: View {
                     SWCard {
                         NavigationLink(row.space_name, value: MemberRoute.booking(row.public_token)).brandFont(.headline).frame(minHeight: 48)
                         Text(guideBookingDate(row.starts_at, timezone: row.timezone))
-                        Text(NativeStatusCopy.label(row.status.value1.rawValue)).foregroundStyle(Color.swMuted)
+                        Text(NativeStatusCopy.label(row.status.value1)).foregroundStyle(Color.swMuted)
                     }
                 }
                 if state.bookingsHasMore {

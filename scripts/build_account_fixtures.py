@@ -14,8 +14,11 @@ def build():
             model("AccountSession", id="device:" + current, kind="device", current=True),
             model("AccountSession", id="web:sample-other-session", kind="web", current=False),
         ]),
-        "grants": [model("DeviceGrant", id=current, platform="apple", app_id="org.spaceworks.app", environment="development", status="active"),
-                   model("DeviceGrant", id=other, platform="android", app_id="org.spaceworks.app", environment="development", status="active")],
+        "grants": model("DeviceGrantPage", count=2, results=[
+            model("DeviceGrant", id=current, platform="apple", app_id="org.spaceworks.app", environment="development", status="active",
+                  authority="member", login_method="password"),
+            model("DeviceGrant", id=other, platform="android", app_id="org.spaceworks.app", environment="development", status="active",
+                  authority="member", login_method="google")]),
         "membership": model("MembershipAccount", status="active"),
         "mfa": model("MFAStatus", available=True, enabled=True, required=False),
         "challenge": model("MFAChallengeResponse", mfa_required=True, enrollment_required=True, challenge="demo-account-challenge", expires_in=300),

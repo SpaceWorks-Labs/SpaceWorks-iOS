@@ -11,7 +11,8 @@ actor DemoMemberStore {
     func request(_ count: Int) throws {
         var value = try object(activityJSON)
         var rows = value["request_history"] as? [[String: Any]] ?? []
-        rows.insert(["status": "pending", "created_at": ISO8601DateFormatter().string(from: Date()), "item_count": count,
+        let next = (rows.compactMap { $0["id"] as? Int }.max() ?? 9000) + 1
+        rows.insert(["id": next, "status": "pending", "created_at": ISO8601DateFormatter().string(from: Date()), "item_count": count,
                      "returned_quantity": 0, "damaged_quantity": 0, "missing_quantity": 0], at: 0)
         value["request_history"] = rows; activityJSON = try json(value)
     }
@@ -65,9 +66,9 @@ actor DemoMemberActionsRepository: MemberActionsRepository {
     private var receipts: [String: (Data, Components.Schemas.RequestSubmitResponse)] = [:]
     private var savedProfile: Components.Schemas.AccountProfile
     private var savedPreferences = Components.Schemas.PreferenceResponse(cells: [
-        .init(feature: .hardware_requests, channel: .email, enabled: true, daily_digest: false, available: true, mandatory_events: ["loan_overdue"]),
-        .init(feature: .events, channel: .in_app, enabled: true, available: true, mandatory_events: []),
-        .init(feature: .events, channel: .native_push, enabled: false, available: false, mandatory_events: [])
+        .init(feature: "hardware_requests", channel: "email", enabled: true, daily_digest: false, available: true, mandatory_events: ["loan_overdue"]),
+        .init(feature: "events", channel: "in_app", enabled: true, available: true, mandatory_events: []),
+        .init(feature: "events", channel: "native_push", enabled: false, available: false, mandatory_events: [])
     ])
     init(store: DemoMemberStore = DemoMemberStore(), scenario: Scenario = .success, name: String = "Meera Nair", bootstrapJSON: String = DebugMemberFixtures.bootstrap, makerspaceID: Int? = nil) {
         self.store = store; self.scenario = scenario; self.bootstrapJSON = bootstrapJSON; self.makerspaceID = makerspaceID
@@ -95,7 +96,7 @@ actor DemoMemberActionsRepository: MemberActionsRepository {
     func submit(items: [Components.Schemas.RequestItemInput], purpose: String, key: String) async throws -> Components.Schemas.RequestSubmitResponse {
         try check()
         let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
-        let payload = try encoder.encode(Components.Schemas.RequestSubmit(requested_for: purpose, items: items))
+        let payload = try encoder.encode(Components.Schemas.PublicRequestSubmitSchema(requested_for: purpose, items: items))
         if let existing = receipts[key] {
             guard existing.0 == payload else { throw APIError(status: 409, code: "idempotency_conflict", detail: String(localized: "This request changed. Review it again.")) }
             return existing.1
@@ -108,19 +109,19 @@ actor DemoMemberActionsRepository: MemberActionsRepository {
         let count = try await store.renewed(request, due: due); return .init(id: request, return_due_at: due, renewal_count: count)
     }
     func availability(space: String, start: Date, end: Date) async throws -> Components.Schemas.PublicSpaceAvailability {
-        try check(); return .init(public_token: space, starts_at: start, ends_at: end, timezone: "Asia/Kolkata", opening_intervals: [.init(starts_at: start, ends_at: end)], availability: [])
+        try check(); return .init(public_token: space, starts_at: start, ends_at: end, timezone: "Asia/Kolkata", opening_intervals: [.init(starts_at: start, ends_at: end)], availability: [], unavailable: [])
     }
     func book(space: String, input: Components.Schemas.PublicBookingInput) async throws -> MemberBookingCreated {
         try check(); let pending = scenario == .pending
-        try await store.booked(input, status: pending ? "pending" : "confirmed"); return .case1(.init(status: pending ? .pending : .confirmed))
+        try await store.booked(input, status: pending ? "pending" : "confirmed"); return .case1(.init(status: pending ? "pending" : "confirmed"))
     }
     func cancelBooking(token: String) async throws -> Components.Schemas.MemberBooking { try check(); return try await store.cancelBooking(token) }
     func register(event: String, input: Components.Schemas.PublicEventRegistrationInput) async throws -> Components.Schemas.PublicEventRegistrationResponse {
-        try check(); let status: Components.Schemas.PublicEventRegistrationResponseStatusEnum = scenario == .waitlisted ? .waitlisted : scenario == .pending ? .pending_approval : .registered
-        try await store.registered(status: status.rawValue); return .init(status: .init(value1: status))
+        try check(); let status: Components.Schemas.PublicEventRegistrationResponseStatusEnum = scenario == .waitlisted ? "waitlisted" : scenario == .pending ? "pending_approval" : "registered"
+        try await store.registered(status: status); return .init(status: .init(value1: status))
     }
     func cancelEvent(registration: Int) async throws -> Components.Schemas.MemberRegistrationCancelResponse {
-        try check(); try await store.cancelled(registration); return .init(status: .init(value1: .cancelled))
+        try check(); try await store.cancelled(registration); return .init(status: .init(value1: "cancelled"))
     }
     func eventQR(registration: Int) async throws -> Data {
         try check()

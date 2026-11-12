@@ -35,7 +35,8 @@ actor DemoAccountRepository: DemoAccountLinking {
         return try decoder.decode(T.self, from: JSONSerialization.data(withJSONObject: object))
     }
     func grants() throws -> [Components.Schemas.DeviceGrant] {
-        let rows = try JSONSerialization.jsonObject(with: Data(DebugAccountFixtures.grants.utf8)) as! [[String: Any]]
+        let page = try JSONSerialization.jsonObject(with: Data(DebugAccountFixtures.grants.utf8)) as! [String: Any]
+        let rows = page["results"] as! [[String: Any]]
         return try rows.filter { !revokedGrants.contains($0["id"] as! String) }.map { try decode(String(decoding: JSONSerialization.data(withJSONObject: $0), as: UTF8.self)) }
     }
     func revokeGrant(id: String) throws { try checked(); revokedGrants.insert(id); revokedSessions.insert("device:" + id) }

@@ -8,7 +8,7 @@ extension SpaceWorksService {
         try await client.api_v1_member_makerspaces_my_usage_retrieve(.init(path: .init(makerspace_id: makerspaceID))).ok.body.json
     }
     public func staffDashboard(makerspaceID: Int) async throws -> Components.Schemas.Dashboard {
-        try await client.api_v1_admin_makerspace_dashboard_retrieve(.init(path: .init(makerspace_id: makerspaceID))).ok.body.json
+        try await staffClient.api_v1_admin_makerspace_dashboard_retrieve(.init(path: .init(makerspace_id: makerspaceID))).ok.body.json
     }
     public func messagingConsent(makerspaceID: Int) async throws -> Components.Schemas.MemberMessaging {
         try await client.api_v1_me_messaging_retrieve(.init(query: .init(makerspace: makerspaceID))).ok.body.json
@@ -23,7 +23,7 @@ extension SpaceWorksService {
                                       attestationJSON: Data) async throws -> Components.Schemas.AccountRestoreResult {
         let input = Components.Schemas.AccountRestorePhone(phone: phone, delivery: .init(value1: .device),
             client_platform: .init(value1: .ios), challenge: challenge, code: code,
-            attestation: .init(value1: try DeviceAttestation.payload(attestationJSON)), new_password: newPassword)
+            attestation: .init(value1: try DeviceAttestation.payload(attestationJSON)), app_version: appVersion, new_password: newPassword)
         return try await publicClient.api_v1_auth_account_restore_phone_create(.init(body: .json(input))).ok.body.json
     }
 }

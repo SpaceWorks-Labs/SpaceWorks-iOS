@@ -33,8 +33,8 @@ actor DemoPaymentRepository: DemoPaymentControlling {
         confirmed = scenario == .paid
     }
     func documents(page: Int) async throws -> Components.Schemas.DocumentPage {
-        let receipt = #"{"id":902,"payment":502,"number":"DEMO-RECEIPT-002","kind":"receipt","issued_at":"2026-10-16T09:00:00Z","money_at":"2026-10-16T09:00:00Z","amount":"150.00","currency":"inr"}"#
-        let newReceipt = #"{"id":901,"payment":501,"number":"DEMO-RECEIPT-001","kind":"receipt","issued_at":"2026-10-16T09:00:00Z","money_at":"2026-10-16T09:00:00Z","amount":"250.00","currency":"inr"}"#
+        let receipt = #"{"id":902,"payment":502,"number":"DEMO-RECEIPT-002","kind":"receipt","status":"issued","issued_at":"2026-10-16T09:00:00Z","money_at":"2026-10-16T09:00:00Z","amount":"150.00","currency":"inr"}"#
+        let newReceipt = #"{"id":901,"payment":501,"number":"DEMO-RECEIPT-001","kind":"receipt","status":"issued","issued_at":"2026-10-16T09:00:00Z","money_at":"2026-10-16T09:00:00Z","amount":"250.00","currency":"inr"}"#
         let results = page == 1 ? (confirmed ? "\(newReceipt),\(receipt)" : receipt) : ""
         return try decode("{\"count\":\(confirmed ? 2 : 1),\"next\":null,\"previous\":null,\"results\":[\(results)]}")
     }
@@ -56,7 +56,7 @@ actor DemoPaymentRepository: DemoPaymentControlling {
         try decode("""
         {"id":\(id),"subject_type":"booking","subject_label":"\(label)","status":"\(status)","amount":"\(amount)",
         "currency":"inr","due_at":null,"due_date":"2026-10-20","due_state":"upcoming","checkout_url":"",
-        "online_payment_available":true,"settlement":null,"refunded_amount":0,"refunds":[],"created_at":"2026-10-16T09:00:00Z"}
+        "online_payment_available":true,"settlement":null,"refunded_amount":0,"refunds":[],"refund_case":null,"refund_requestable":false,"offline_collection":{"claim":null,"claimable":false,"instructions":"","instructions_unit":null,"upi":null},"created_at":"2026-10-16T09:00:00Z"}
         """)
     }
     private func decode<T: Decodable>(_ json: String) throws -> T {

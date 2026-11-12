@@ -6,10 +6,12 @@
   ],
   "qr": {
     "created_at": "2026-10-16T09:00:00Z",
+    "external_value": "",
     "id": 1201,
     "makerspace": 7,
     "payload": "DEMO-BOX",
     "revoked_at": null,
+    "source": "spaceworks",
     "status": "active",
     "target_id": 91,
     "target_type": "box",

@@ -68,7 +68,7 @@ final class CommunicationPreferencesState {
         await write(.init(feature: cell.feature, channel: cell.channel, enabled: enabled))
     }
     func digest(_ cell: Components.Schemas.PreferenceCell, enabled: Bool, now: Date = Date()) async {
-        guard active, !busy, digestsAllowed, cell.available, cell.enabled, cell.channel.rawValue == "email", cell.daily_digest != nil,
+        guard active, !busy, digestsAllowed, cell.available, cell.enabled, cell.channel == "email", cell.daily_digest != nil,
               (retryAfter ?? .distantPast) <= now else { return }
         await write(.init(feature: cell.feature, channel: cell.channel, enabled: cell.enabled, daily_digest: enabled))
     }

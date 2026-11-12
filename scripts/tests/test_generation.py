@@ -18,20 +18,38 @@ spec.loader.exec_module(generator)
 class GenerationTests(unittest.TestCase):
     def test_authoritative_contract_is_unchanged_and_staged_for_plugin(self):
         source = (ROOT / "api/openapi.json").read_bytes()
-        self.assertEqual(hashlib.sha256(source).hexdigest(), json.loads((ROOT / "api/provenance.json").read_text())["sha256"])
+        provenance = json.loads((ROOT / "api/provenance.json").read_text())
+        self.assertEqual(hashlib.sha256(source).hexdigest(), provenance["sha256"])
+        self.assertEqual(len(source), provenance["bytes"])
+        original = json.loads(source)
+        self.assertEqual(len(original["paths"]), provenance["paths"])
+        self.assertEqual(original["info"]["version"], provenance["source_version"])
         staged = json.loads((ROOT / "Packages/SpaceWorksAPI/Sources/SpaceWorksAPI/openapi.json").read_bytes())
-        expected = json.loads(source)
-        for operations in expected["paths"].values():
-            for operation in operations.values():
-                if not isinstance(operation, dict):
-                    continue
-                content = operation.get("requestBody", {}).get("content", {})
-                if "application/json" in content:
-                    operation["requestBody"]["content"] = {"application/json": content["application/json"]}
-                elif content and not any("/" in media for media in content) and not operation["requestBody"].get("required", False):
-                    del operation["requestBody"]
-        self.assertEqual(staged, expected, "Only documented JSON or optional no-body representations may be selected; all models remain unchanged")
-        self.assertEqual(len(json.loads(source)["paths"]), 760)
+        self.assertEqual(staged, generator.project_contract(json.loads(source), generator.selected_operations()))
+
+    def test_projection_keeps_selected_operations_and_fields_and_opens_response_enums_only(self):
+        original = json.loads((ROOT / "api/openapi.json").read_bytes())
+        selected = generator.selected_operations()
+        staged = generator.project_contract(json.loads((ROOT / "api/openapi.json").read_bytes()), selected)
+        kept = {op["operationId"] for ops in staged["paths"].values() for op in ops.values() if isinstance(op, dict) and "operationId" in op}
+        self.assertEqual(kept, selected)
+        before, after = original["components"]["schemas"], staged["components"]["schemas"]
+        for name, schema in after.items():
+            # Every DTO keeps its properties and required list; only enum lists may be dropped.
+            self.assertEqual(set(schema.get("properties", {})), set(before[name].get("properties", {})), name)
+            self.assertEqual(schema.get("required"), before[name].get("required"), name)
+        # Response enums that gained values in 0.12.0 decode as strings (PRD §7 "treat as other").
+        for name in ["SubjectType4a3Enum", "Kind1c7Enum", "PermissionsAbdEnum", "Feature977Enum", "SessionAuthorityEnum", "FactorsEnum"]:
+            self.assertNotIn("enum", after[name], name)
+            self.assertEqual(after[name]["type"], "string", name)
+        # Request-only enums stay closed and typed.
+        for name in ["FactorEnum", "Authority817Enum", "EnvironmentEnum"]:
+            self.assertEqual(after[name]["enum"], before[name]["enum"], name)
+        # Inline response enums are opened too (availability label, bootstrap request_access).
+        self.assertNotIn("enum", json.dumps(after["PublicProduct"]["properties"]["availability"]))
+        self.assertNotIn("enum", after["RequestAccessEnum"])
+        with self.assertRaises(ValueError):
+            generator.project_contract(json.loads((ROOT / "api/openapi.json").read_bytes()), selected | {"api_v1_not_a_real_operation"})
 
     def test_brand_config_drives_project_display_name_bundle_and_icon(self):
         brand = json.loads((ROOT / "branding/brand.json").read_text())
@@ -70,6 +88,8 @@ class GenerationTests(unittest.TestCase):
             root = pathlib.Path(temporary).resolve()
             for folder in ["scripts", "branding", "tokens", "api", "Fixtures"]:
                 shutil.copytree(ROOT / folder, root / folder, ignore=shutil.ignore_patterns("__pycache__"))
+            (root / generator.GENERATOR_CONFIG).parent.mkdir(parents=True)
+            shutil.copyfile(ROOT / generator.GENERATOR_CONFIG, root / generator.GENERATOR_CONFIG)
             (root / "design/logo").mkdir(parents=True)
             for name in ["lockup-horizontal-one-colour-ink.png", "lockup-horizontal-reversed.png", "lockup-stacked.png", "lockup-stacked-reversed.png", "symbol.png", "symbol-reversed.png"]:
                 shutil.copyfile(ROOT / "design/logo" / name, root / "design/logo" / name)

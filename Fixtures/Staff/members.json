@@ -3,8 +3,10 @@
   "results": [
     {
       "display_name": "Meera Nair",
+      "is_guest_pass": false,
       "is_walk_in": false,
       "membership_id": 81,
+      "pass_valid_until": null,
       "user_id": 51,
       "username": "meera"
     }

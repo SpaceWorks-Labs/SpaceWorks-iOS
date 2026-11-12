@@ -41,7 +41,7 @@ struct PaymentsView: View {
                             Text(row.subject_label).brandFont(.headline).foregroundStyle(Color.swInk)
                             PaymentMoney(amount: row.amount, currency: row.currency)
                             HStack(alignment: .top) {
-                                Text(PaymentCopy.status(row.status?.rawValue)).foregroundStyle(Color.swMuted)
+                                Text(PaymentCopy.status(row.status)).foregroundStyle(Color.swMuted)
                                 Spacer()
                                 Image(systemName: "chevron.right").accessibilityHidden(true)
                             }
@@ -75,7 +75,7 @@ struct PaymentDetailView: View {
                     Text(row.subject_label).brandFont(.title2, weight: .bold)
                     SWCard {
                         PaymentMoney(amount: row.amount, currency: row.currency).brandFont(.title, weight: .bold)
-                        Text(PaymentCopy.status(row.status?.rawValue)).brandFont(.headline)
+                        Text(PaymentCopy.status(row.status)).brandFont(.headline)
                         if let due = row.due_date, !due.isEmpty { Text("Due \(due)").foregroundStyle(Color.swMuted) }
                         Text("Charge #\(row.id)").brandFont(.subheadline).foregroundStyle(Color.swMuted)
                     }
@@ -95,7 +95,7 @@ struct PaymentDetailView: View {
                         Text("Review the amount above. Your payment provider will open to complete checkout.").foregroundStyle(Color.swMuted)
                         Button("Continue to payment") { startCheckout() }.buttonStyle(SWPrimary())
                             .accessibilityIdentifier("payment-continue")
-                    } else if row.status?.rawValue == "pending", !row.online_payment_available {
+                    } else if row.status == "pending", !row.online_payment_available {
                         Label("Online payment is unavailable. Ask your makerspace about paying at the desk.", systemImage: "info.circle")
                             .foregroundStyle(Color.swMuted)
                     }
@@ -230,7 +230,7 @@ struct PaymentDocumentsView: View {
                 if state.documentBusy { ProgressView("Preparing document…") }
                 ForEach(documents, id: \.id) { document in
                     SWCard {
-                        Text(document.kind.rawValue == "credit_note" ? "Credit note \(document.number)" : "Receipt \(document.number)").brandFont(.headline)
+                        Text(document.kind == "credit_note" ? "Credit note \(document.number)" : "Receipt \(document.number)").brandFont(.headline)
                         PaymentMoney(amount: document.amount, currency: document.currency)
                         Text(document.issued_at, format: .dateTime.day().month().year()).foregroundStyle(Color.swMuted)
                         Button("Open PDF") { Task { await state.openDocument(document) } }.frame(minHeight: 48)

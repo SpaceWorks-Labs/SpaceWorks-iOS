@@ -27,7 +27,7 @@ private actor DeletionFake: AccountDeletionRepository {
         return try decode(#"{"deletable":\#(blockers.isEmpty),"restorable":true,"restore_reason":"","blockers":[\#(rows)],"reauth":{"required":true,"methods":[\#(names)]}}"#)
     }
     func status() async throws -> Components.Schemas.ReauthenticationStatus {
-        try decode(#"{"verified":\#(verified),"password_available":true,"mfa_enabled":\#(mfa),"providers":["google"]}"#)
+        try decode(#"{"verified":\#(verified),"password_available":true,"passkey_available":false,"mfa_enabled":\#(mfa),"providers":["google"]}"#)
     }
     func reauthenticate(password: String, code: String?) async throws -> Components.Schemas.ReauthenticationResult {
         reauthCalls.append((password, code))
@@ -125,7 +125,7 @@ private actor DeletionFake: AccountDeletionRepository {
         }, onDeleted: { _, _ in })
         await state.load()
         await state.verifySocial("google")
-        XCTAssertEqual(state.stage, .factor); XCTAssertEqual(state.factorKind, .totp)
+        XCTAssertEqual(state.stage, .factor); XCTAssertEqual(state.factorKind, "totp")
         state.code = "654321"; await state.verifyFactor()
         XCTAssertEqual(state.stage, .confirm)
     }

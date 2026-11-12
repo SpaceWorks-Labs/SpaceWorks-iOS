@@ -92,7 +92,7 @@ final class PaymentsState {
     func record(_ id: Int) -> Components.Schemas.MemberPayment? { records.first { $0.id == id } }
     func requiresStatusRefresh(_ id: Int) -> Bool { needsFreshStatus.contains(id) }
     func canPay(_ row: Components.Schemas.MemberPayment) -> Bool {
-        canRequest && !busy && !needsFreshStatus.contains(row.id) && row.status?.rawValue == "pending" && row.online_payment_available && checkout != .awaiting(row.id)
+        canRequest && !busy && !needsFreshStatus.contains(row.id) && row.status == "pending" && row.online_payment_available && checkout != .awaiting(row.id)
     }
     func invalidate() {
         active = false; listGeneration += 1; documentGeneration += 1; previewGeneration += 1
@@ -145,7 +145,7 @@ final class PaymentsState {
             let current = try await repository.payments()
             guard matches(attempt) else { return nil }
             records = current
-            guard let row = record(paymentID), row.status?.rawValue == "pending", row.online_payment_available else {
+            guard let row = record(paymentID), row.status == "pending", row.online_payment_available else {
                 checkoutAttempt = nil; checkout = .stopped(paymentID, "This payment is no longer available to pay online. Its latest status is shown above.")
                 return nil
             }
@@ -191,11 +191,11 @@ final class PaymentsState {
                 let result = try await repository.payments()
                 guard matches(attempt) else { return }
                 records = result; load = .ready; needsFreshStatus.remove(paymentID)
-                if let row = record(paymentID), ["paid_online", "paid_offline", "waived"].contains(row.status?.rawValue ?? "") {
+                if let row = record(paymentID), ["paid_online", "paid_offline", "waived"].contains(row.status ?? "") {
                     checkoutAttempt = nil; checkout = .completed(paymentID)
                     await loadDocuments(); return
                 }
-                if record(paymentID)?.status?.rawValue == "canceled" {
+                if record(paymentID)?.status == "canceled" {
                     checkoutAttempt = nil; checkout = .stopped(paymentID, "This payment was canceled."); return
                 }
             }
@@ -260,10 +260,10 @@ final class PaymentsState {
         default: return false
         }
         guard let row = record(id) else { return false }
-        if ["paid_online", "paid_offline", "waived"].contains(row.status?.rawValue ?? "") {
+        if ["paid_online", "paid_offline", "waived"].contains(row.status ?? "") {
             checkout = .completed(id); reconciliationError = nil; return true
         }
-        if row.status?.rawValue == "canceled" { checkout = .stopped(id, "This payment was canceled.") }
+        if row.status == "canceled" { checkout = .stopped(id, "This payment was canceled.") }
         return false
     }
     private static func nextDocumentPage(_ value: String?, after page: Int) throws -> Int? {

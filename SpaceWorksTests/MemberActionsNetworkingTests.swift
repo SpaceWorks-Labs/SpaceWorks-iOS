@@ -19,7 +19,7 @@ final class MemberActionsNetworkingTests: XCTestCase {
                 XCTAssertEqual(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "slug" })?.value, "fab-lab-kochi")
                 json = DebugMemberFixtures.bootstrap
             } else if path.hasSuffix("/requests") {
-                XCTAssertEqual(request.httpMethod, "POST"); XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "reviewed-attempt")
+                XCTAssertEqual(request.httpMethod, "POST"); XCTAssertNil(request.value(forHTTPHeaderField: "Idempotency-Key"), "0.12.0 removed the header")
                 let body = try Self.body(request)
                 XCTAssertEqual(Set(body.keys), Set(["requested_for", "items"]))
                 let item = (body["items"] as! [[String: Any]])[0]
@@ -31,7 +31,7 @@ final class MemberActionsNetworkingTests: XCTestCase {
             } else if path.hasSuffix("/availability") {
                 let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
                 XCTAssertNotNil(query.first { $0.name == "starts_at" }); XCTAssertNotNil(query.first { $0.name == "ends_at" })
-                json = "{\"public_token\":\"\(token)\",\"starts_at\":\"2027-01-15T08:00:00Z\",\"ends_at\":\"2027-01-15T09:00:00Z\",\"timezone\":\"Asia/Kolkata\",\"opening_intervals\":[],\"availability\":null}"
+                json = "{\"public_token\":\"\(token)\",\"starts_at\":\"2027-01-15T08:00:00Z\",\"ends_at\":\"2027-01-15T09:00:00Z\",\"timezone\":\"Asia/Kolkata\",\"opening_intervals\":[],\"availability\":null,\"unavailable\":[]}"
             } else if path.hasSuffix("/book") {
                 XCTAssertEqual(request.httpMethod, "POST")
                 let body = try Self.body(request); XCTAssertNotNil(body["starts_at"]); XCTAssertNotNil(body["ends_at"]); XCTAssertNil(body["status"])
@@ -64,21 +64,21 @@ final class MemberActionsNetworkingTests: XCTestCase {
         try await service.makerspace.select(7, activeMemberships: [7])
         try await service.withMakerspace(7) {
             let bootstrap = try await service.memberBootstrap(slug: "fab-lab-kochi"); XCTAssertEqual(bootstrap.makerspace.id, 7)
-            let receipt = try await service.submitMemberRequest(slug: "fab-lab-kochi", items: [.init(product_id: 1, quantity: 2)], purpose: "A project", idempotencyKey: "reviewed-attempt")
+            let receipt = try await service.submitMemberRequest(slug: "fab-lab-kochi", items: [.init(product_id: 1, quantity: 2)], purpose: "A project")
             XCTAssertEqual(receipt.public_token, token); XCTAssertEqual(receipt.status, "pending")
             let renewal = try await service.renewMemberLoan(id: 7, requestID: 4); XCTAssertEqual(renewal.renewal_count, 2)
             let availability = try await service.bookingAvailability(slug: "fab-lab-kochi", token: token, start: now, end: now.addingTimeInterval(3600)); XCTAssertNil(availability.availability)
             let booked = try await service.createMemberBooking(slug: "fab-lab-kochi", token: token, input: .init(starts_at: now, ends_at: now.addingTimeInterval(3600)))
             XCTAssertTrue(booked.pending)
             let cancelledBooking = try await service.cancelMemberBooking(slug: "fab-lab-kochi", token: token)
-            XCTAssertEqual(cancelledBooking.public_token, token); XCTAssertEqual(cancelledBooking.status.value1.rawValue, "cancelled"); XCTAssertFalse(cancelledBooking.can_cancel)
-            let registered = try await service.registerMemberEvent(slug: "fab-lab-kochi", token: token, input: .init(ticket_type_id: 1)); XCTAssertEqual(registered.status.value1, .waitlisted)
-            let cancelled = try await service.cancelMemberEvent(id: 7, registration: 77); XCTAssertEqual(cancelled.status.value1, .cancelled)
+            XCTAssertEqual(cancelledBooking.public_token, token); XCTAssertEqual(cancelledBooking.status.value1, "cancelled"); XCTAssertFalse(cancelledBooking.can_cancel)
+            let registered = try await service.registerMemberEvent(slug: "fab-lab-kochi", token: token, input: .init(ticket_type_id: 1)); XCTAssertEqual(registered.status.value1, "waitlisted")
+            let cancelled = try await service.cancelMemberEvent(id: 7, registration: 77); XCTAssertEqual(cancelled.status.value1, "cancelled")
             let qr = try await service.memberEventQR(id: 7, registration: 77); XCTAssertTrue(String(decoding: qr, as: UTF8.self).contains("<svg"))
             _ = try await service.memberProfile(id: 7)
             _ = try await service.updateMemberProfile(id: 7, input: .init(display_name: "Meera Maker"))
             _ = try await service.communicationPreferences(id: 7)
-            _ = try await service.updateCommunicationPreference(id: 7, input: .init(feature: .hardware_requests, channel: .email, enabled: false))
+            _ = try await service.updateCommunicationPreference(id: 7, input: .init(feature: "hardware_requests", channel: "email", enabled: false))
         }
         XCTAssertEqual(calls, 13)
     }

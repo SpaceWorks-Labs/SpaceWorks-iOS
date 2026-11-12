@@ -8,8 +8,8 @@ public extension MemberBookingCreated {
     /// Pending approval is distinct from a confirmed booking in both documented response forms.
     var pending: Bool {
         switch self {
-        case .case1(let value): return value.status == .pending
-        case .case2(let value): return value.status == .pending
+        case .case1(let value): return value.status == "pending"
+        case .case2(let value): return value.status == "pending"
         }
     }
 }
@@ -18,10 +18,20 @@ extension SpaceWorksService {
     public func memberBootstrap(slug: String) async throws -> Components.Schemas.TenantBootstrap {
         try await client.api_v1_bootstrap_retrieve(.init(query: .init(slug: slug))).ok.body.json
     }
-    public func submitMemberRequest(slug: String, items: [Components.Schemas.RequestItemInput], purpose: String, idempotencyKey: String) async throws -> Components.Schemas.RequestSubmitResponse {
+    /// 0.12.0 removed the `Idempotency-Key` header from this operation (backend gap B-3), so a
+    /// retried submit can no longer be deduplicated by the server.
+    public func submitMemberRequest(slug: String, items: [Components.Schemas.RequestItemInput], purpose: String) async throws -> Components.Schemas.RequestSubmitResponse {
         try await client.api_v1_public_requests_create(.init(path: .init(makerspace_slug: slug),
-            headers: .init(Idempotency_hyphen_Key: idempotencyKey),
             body: .json(.init(requested_for: purpose, items: items)))).created.body.json
+    }
+    /// The member's own request, read by its public token.
+    public func memberRequestStatus(token: String) async throws -> Components.Schemas.PublicRequestStatus {
+        try await client.api_v1_public_requests_status_retrieve(.init(path: .init(public_token: token))).ok.body.json
+    }
+    /// The server checks the new time (rules, availability, price) before changing the booking.
+    public func rescheduleMemberBooking(slug: String, token: String, start: Date, end: Date) async throws -> Components.Schemas.MemberBooking {
+        try await client.api_v1_public_my_bookings_reschedule_create(.init(path: .init(makerspace_slug: slug, public_token: token),
+            body: .json(.init(starts_at: start, ends_at: end)))).ok.body.json
     }
     public func renewMemberLoan(id: Int, requestID: Int) async throws -> Components.Schemas.LoanRenewal {
         try await client.api_v1_member_makerspaces_loans_renew_create(.init(path: .init(id: requestID, makerspace_id: id))).ok.body.json

@@ -20,7 +20,7 @@ final class AccountOperationTests: XCTestCase {
         var object = try JSONSerialization.jsonObject(with: Data(value.utf8)) as! [String: Any]; object.merge(changes) { _, new in new }
         return String(decoding: try JSONSerialization.data(withJSONObject: object), as: UTF8.self)
     }
-    private var me: String { #"{"session_authority":"member","id":51,"username":"meera","email":"meera@example.test","display_name":"Meera Nair","phone":"","email_verified":true,"role":"member","is_superuser":false,"must_change_password":false,"makerspaces":[]}"# }
+    private var me: String { #"{"session_authority":"member","id":51,"username":"meera","email":"meera@example.test","display_name":"Meera Nair","phone":"","email_verified":true,"role":"member","is_superuser":false,"must_change_password":false,"makerspaces":[],"handle":"meera","handle_required":false,"handle_suggestion":null,"kind":"person","is_platform":false,"has_staff_role":false,"has_elevated_authority":false,"has_organizations":false,"staff_roles":[],"superadmin_actions":[],"mfa_grace_ends_at":null,"merge_suggested":false,"mfa_enrolment_due":false,"preferred_locale":null,"effective_locale":"en","supported_locales":[]}"# }
     private func archiveBytes() throws -> Data {
         let object = try JSONSerialization.jsonObject(with: Data(DebugAccountFixtures.archive.utf8)) as! [String: String]
         return try XCTUnwrap(Data(base64Encoded: object["base64"]!))
@@ -114,7 +114,7 @@ final class AccountOperationTests: XCTestCase {
             }
             if path.hasSuffix("account/exports") {
                 if method == "POST" {
-                    let body = try JSONSerialization.jsonObject(with: requestBody(request)) as! [String: Any]; XCTAssertTrue(body.isEmpty)
+                    XCTAssertTrue(requestBody(request).isEmpty, "0.12.0 declares no request body")
                     return self.json(DebugAccountFixtures.export, status: 202)
                 }
                 XCTAssertNil(request.url?.query); return self.json("{\"count\":1,\"next\":null,\"previous\":null,\"results\":[\(DebugAccountFixtures.export)]}")
