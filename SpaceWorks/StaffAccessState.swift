@@ -84,6 +84,7 @@ final class StaffAccessState {
         }
         busy = true; error = nil; notice = nil
         defer { busy = false }
+        Telemetry.shared.track(.staffStepUpStarted)
         let generation = self.generation
         do {
             let challenge = try await service.challenge(appID: appID, development: development)
@@ -125,6 +126,7 @@ final class StaffAccessState {
             guard target?.id == makerspaceID else { return }
             step = recoveryCodes.isEmpty ? .idle : .recoveryCodes
             notice = String(localized: "Staff tools are open for this makerspace.")
+            Telemetry.shared.track(.staffStepUpSucceeded)
         } catch { fail(error) }
     }
 
@@ -135,6 +137,7 @@ final class StaffAccessState {
     func end(serverLogout: Bool = true) async {
         guard await service.staffRefresh.current() != nil || target != nil else { return }
         if serverLogout { try? await service.staffSignOut() }
+        if target != nil { Telemetry.shared.track(.staffSignedOut) }
         clearLocal()
         try? await service.installStaffGrant(nil)
     }
@@ -164,6 +167,7 @@ final class StaffAccessState {
     private func fail(_ failure: Error) {
         guard !APIError.isCancellation(failure) else { return }
         if APIError.isUpdateRequired(failure), let error = APIError.apiError(failure) { onUpdateRequired(error); return }
+        Telemetry.shared.track(.staffStepUpFailed(code: TelemetryEvent.failureCode(failure)))
         error = APIError.display(failure)
     }
 }

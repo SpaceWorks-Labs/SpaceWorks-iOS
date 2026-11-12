@@ -43,6 +43,8 @@ enum TelemetryEvent: Equatable {
     case qrScanned(context: String), eventCheckIn
     case accountDeletionStarted, accountDeletionCompleted
     case consentUpdated(analytics: Bool, replay: Bool, diagnostics: Bool)
+    case usernameSet, updateRequired(source: String)
+    case staffStepUpStarted, staffStepUpSucceeded, staffStepUpFailed(code: String), staffSignedOut
 
     enum Name: String, CaseIterable {
         case app_open, screen_view, onboarding_completed, server_connected, sign_in_started, sign_in_succeeded, sign_in_failed
@@ -51,6 +53,7 @@ enum TelemetryEvent: Equatable {
         case event_registration_cancelled, ticket_opened, payment_started, payment_finished, receipt_downloaded
         case push_permission_result, push_opened, deep_link_opened, staff_request_decided, staff_item_issued, staff_item_returned
         case staff_direct_handout, qr_scanned, event_check_in, account_deletion_started, account_deletion_completed, consent_updated
+        case username_set, update_required, staff_step_up_started, staff_step_up_succeeded, staff_step_up_failed, staff_signed_out
     }
 
     var name: Name {
@@ -90,6 +93,12 @@ enum TelemetryEvent: Equatable {
         case .accountDeletionStarted: return .account_deletion_started
         case .accountDeletionCompleted: return .account_deletion_completed
         case .consentUpdated: return .consent_updated
+        case .usernameSet: return .username_set
+        case .updateRequired: return .update_required
+        case .staffStepUpStarted: return .staff_step_up_started
+        case .staffStepUpSucceeded: return .staff_step_up_succeeded
+        case .staffStepUpFailed: return .staff_step_up_failed
+        case .staffSignedOut: return .staff_signed_out
         }
     }
 
@@ -109,6 +118,8 @@ enum TelemetryEvent: Equatable {
         case .deepLinkOpened(let kind): return ["kind": .string(kind)]
         case .staffRequestDecided(let decision): return ["decision": .string(decision)]
         case .qrScanned(let context): return ["context": .string(context)]
+        case .updateRequired(let source): return ["source": .string(source)]
+        case .staffStepUpFailed(let code): return ["code": .string(code)]
         case .consentUpdated(let analytics, let replay, let diagnostics):
             return ["analytics": .bool(analytics), "replay": .bool(replay), "diagnostics": .bool(diagnostics)]
         default: return [:]
@@ -136,7 +147,8 @@ enum TelemetryValue: Equatable {
 
 /// Route templates, never raw ids. Sensitive screens pause session replay while visible.
 enum TelemetryScreen: String, CaseIterable {
-    case intro, consent_prompt, server_connect, sign_in, mfa, phone_sign_in, sign_up, password_reset, password_change, recovery_codes, email_verification
+    case intro, consent_prompt, server_connect, sign_in, mfa, email_code, phone_sign_in, sign_up, password_reset, password_change, recovery_codes, email_verification
+    case username, update_required, staff_step_up
     case home, inventory, inventory_detail, activity, inbox, profile, bookings, spaces, space_detail, booking_detail
     case event_detail, event_ticket, membership_card, profile_edit, communication_preferences, payments, payment_detail
     case account_security, account_deletion, notification_settings, app_guide, privacy_analytics
@@ -144,7 +156,7 @@ enum TelemetryScreen: String, CaseIterable {
 
     var sensitive: Bool {
         switch self {
-        case .sign_in, .mfa, .phone_sign_in, .sign_up, .password_reset, .password_change, .recovery_codes, .email_verification, .account_deletion,
+        case .sign_in, .mfa, .email_code, .staff_step_up, .phone_sign_in, .sign_up, .password_reset, .password_change, .recovery_codes, .email_verification, .account_deletion,
              .payment_detail, .payments, .membership_card, .event_ticket, .staff_scan, .staff_evidence: return true
         default: return false
         }

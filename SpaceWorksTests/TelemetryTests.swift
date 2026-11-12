@@ -141,7 +141,9 @@ import XCTest
                     "inventory_searched", "hardware_request_submitted", "loan_renewed", "booking_created", "booking_cancelled", "event_registered",
                     "event_registration_cancelled", "ticket_opened", "payment_started", "payment_finished", "receipt_downloaded",
                     "push_permission_result", "push_opened", "deep_link_opened", "staff_request_decided", "staff_item_issued", "staff_item_returned",
-                    "staff_direct_handout", "qr_scanned", "event_check_in", "account_deletion_started", "account_deletion_completed", "consent_updated"]
+                    "staff_direct_handout", "qr_scanned", "event_check_in", "account_deletion_started", "account_deletion_completed", "consent_updated",
+                    // 0.12.0 auth and staff flows (docs/TELEMETRY.md)
+                    "username_set", "update_required", "staff_step_up_started", "staff_step_up_succeeded", "staff_step_up_failed", "staff_signed_out"]
         let names = TelemetryEvent.Name.allCases.map(\.rawValue)
         XCTAssertEqual(Set(names).count, names.count)
         XCTAssertEqual(Set(names), Set(spec))

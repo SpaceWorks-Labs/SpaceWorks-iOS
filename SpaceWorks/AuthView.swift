@@ -21,12 +21,12 @@ struct AuthRoot: View {
             } else {
             switch auth.stage {
             case .restoring: ProgressView("Opening your makerspace…").frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.swBg)
-            case .updateRequired: UpdateRequiredView(auth: auth, state: state)
+            case .updateRequired: UpdateRequiredView(auth: auth, state: state).telemetryScreen(.update_required)
             case .signIn: SignInView(auth: auth, state: state).telemetryScreen(.sign_in)
             case .webConsole: WebConsoleNoticeView(auth: auth)
-            case .mfa, .recoveryCodes: MFAView(auth: auth).telemetryScreen(auth.stage == .mfa ? .mfa : .recovery_codes)
+            case .mfa, .recoveryCodes: MFAView(auth: auth).telemetryScreen(auth.stage == .mfa ? (auth.emailCodeChallenge ? .email_code : .mfa) : .recovery_codes)
             case .passwordChange: PasswordChangeView(auth: auth).telemetryScreen(.password_change)
-            case .chooseUsername: ChooseUsernameView(auth: auth)
+            case .chooseUsername: ChooseUsernameView(auth: auth).telemetryScreen(.username)
             case .securityCompletion:
                 AccountSecurityCompletionView(codes: auth.recoveryCodes, message: auth.securityMessage ?? "", continueToSignIn: auth.finishSecurityCompletion)
             case .signedIn:

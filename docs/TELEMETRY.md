@@ -82,7 +82,7 @@ are hidden.
   `beforeSendSpan` (`TelemetryScrubber`) drop Authorization, Cookie, X-Makerspace-Id, query strings, fragments
   and bodies, and replace numeric, UUID and opaque-token path segments with `{id}`. Environment = brand
   `sentry_environment` or build type; release = `<bundle id>@<version>+<build>`.
-- Clarity paused on: sign-in, MFA, phone sign-in, sign-up, password reset/change, recovery codes, email
+- Clarity paused on: sign-in, MFA, the emailed sign-in code, the staff step-up, phone sign-in, sign-up, password reset/change, recovery codes, email
   verification, account deletion, payments and payment detail, staff QR scanner and evidence camera,
   membership card and event ticket. There are no WebViews.
 
@@ -103,11 +103,18 @@ Fired from view models at the server-confirmed success point, except `*_started`
 `event_check_in`, `account_deletion_started`, `account_deletion_completed`,
 `consent_updated{analytics, replay, diagnostics}`.
 
+0.12.0 auth and staff flows (owned here; Android uses the same names): `mfa_challenge_shown{kind}` also
+takes `email_code` for the unusual-sign-in emailed code; `username_set` (the blocking "Choose your
+username" step succeeded); `update_required{source: config|server}` (the published minimum, or a 426
+from any call); `staff_step_up_started`, `staff_step_up_succeeded`, `staff_step_up_failed{code}`,
+`staff_signed_out` ("Leave staff tools"). The makerspace slug typed for the step-up is never sent.
+
 `method` ∈ password, google, apple, oidc, phone, passkey; `code` = server error `code`, else HTTP status class
 (`4xx`), else `network`. `feature`/`kind` are destination route templates.
 
 Screen names (`TelemetryScreen`): `intro`, `consent_prompt`, `server_connect`, `sign_in`, `mfa`, `phone_sign_in`,
-`sign_up`, `password_reset`, `password_change`, `recovery_codes`, `email_verification`, `home`, `inventory`,
+`sign_up`, `password_reset`, `password_change`, `recovery_codes`, `email_verification`, `email_code`, `username`,
+`update_required`, `staff_step_up`, `home`, `inventory`,
 `inventory_detail`, `activity`, `inbox`, `profile`, `bookings`, `spaces`, `space_detail`, `booking_detail`,
 `event_detail`, `event_ticket`, `membership_card`, `profile_edit`, `communication_preferences`, `payments`,
 `payment_detail`, `account_security`, `account_deletion`, `notification_settings`, `app_guide`,

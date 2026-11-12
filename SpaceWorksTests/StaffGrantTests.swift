@@ -119,6 +119,21 @@ import SpaceWorksAPI
         XCTAssertEqual(try member.load(), memberPair)
     }
 
+    func testStepUpAndLeavingAreTrackedWithoutIdentifiers() async throws {
+        let previous = Telemetry.shared; defer { Telemetry.shared = previous }
+        let recorder = RecordingTelemetryAdapter(.analytics)
+        let telemetry = Telemetry(config: TelemetryConfig(info: ["posthog_api_key": "phc_test0123456789"], firebasePlistPresent: false), adapters: [recorder],
+                                  settings: UserDefaults(suiteName: UUID().uuidString)!, isDebugBuild: false, appVersion: "1.0")
+        telemetry.setConsent([.analytics: true]); Telemetry.shared = telemetry
+        let auth = state(member: MemoryTokens(memberPair)) { _ in nil }
+        await steppedUp(auth)
+        let names = recorder.events.map(\.0)
+        XCTAssertTrue(names.contains("staff_step_up_started")); XCTAssertTrue(names.contains("staff_step_up_succeeded"))
+        XCTAssertTrue(recorder.events.allSatisfy { event in !event.1.values.contains { "\($0)".contains("demo-workshop") } })
+        await auth.staff.end()
+        XCTAssertEqual(recorder.events.last?.0, "staff_signed_out")
+    }
+
     func testLosingTheStaffGrantDropsOnlyStaffTools() async throws {
         var revoked = false
         let auth = state(member: MemoryTokens(memberPair)) { request in

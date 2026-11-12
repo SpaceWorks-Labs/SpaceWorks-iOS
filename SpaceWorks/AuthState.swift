@@ -143,6 +143,7 @@ final class AuthState {
     func updateRequiredByServer(_ failure: APIError) {
         enforcedMinimum = failure.minimumVersion ?? enforcedMinimum
         mfa = nil; mfaExpires = nil; enrollment = nil; code = ""; password = ""
+        if stage != .updateRequired { Telemetry.shared.track(.updateRequired(source: "server")) }
         error = nil; stage = .updateRequired
     }
     func accountForm(_ step: AccountAccessState.Step) -> AccountAccessState {
@@ -201,7 +202,7 @@ final class AuthState {
         do {
             configuration = try await service.configuration()
             // Stored credentials stay in Keychain so an updated app can resume without signing in again.
-            if updateRequired { stage = .updateRequired; return }
+            if updateRequired { stage = .updateRequired; Telemetry.shared.track(.updateRequired(source: "config")); return }
             guard await service.refresh.current() != nil else { stage = .signIn; return }
             try await loadIdentity()
             await staff.refresh()
@@ -332,7 +333,7 @@ final class AuthState {
         mfaExpires = Date().addingTimeInterval(TimeInterval(challenge.expires_in))
         if challenge.enrollment_required { enrollment = try await service.enroll(challenge: challenge.challenge) }
         stage = .mfa
-        Telemetry.shared.track(.mfaChallengeShown(kind: challenge.enrollment_required ? "enrollment" : "verification"))
+        Telemetry.shared.track(.mfaChallengeShown(kind: challenge.enrollment_required ? "enrollment" : emailCodeChallenge ? "email_code" : "verification"))
         if identityGeneration == generation { feedback = .init(.selection) }
     }
 
@@ -402,7 +403,7 @@ final class AuthState {
     }
     private func usernameClaimed(accountID: Int, generation: Int) async {
         guard identityGeneration == generation, user?.id == accountID else { return }
-        do { try await loadIdentity(); feedback = .init(.success) } catch {
+        do { try await loadIdentity(); feedback = .init(.success); Telemetry.shared.track(.usernameSet) } catch {
             guard identityGeneration == generation else { return }
             fail(error)
             if isUnauthorized(error) { await invalidateSession(message: APIError.display(error)) }
@@ -835,7 +836,8 @@ final class AuthState {
     /// Pseudonymous identity; role_kind is staff only with native staff authority in the selected makerspace.
     private func identifyTelemetry() {
         guard let id = user?.id else { return }
-        let staff = staffToolsAvailable && !Set(selectedMembership?.actions ?? []).isDisjoint(with: StaffState.toolActions)
+        // role_kind is staff only while the staff step-up grant covers the selected makerspace with a staff tool.
+        let staff = staffToolsAvailable && !(selectedID.flatMap { self.staff.actions(for: $0) } ?? []).isDisjoint(with: StaffState.toolActions)
         Telemetry.shared.identify(TelemetryUser(origin: origin.url, userID: id, roleKind: staff ? .staff : .member))
     }
 }

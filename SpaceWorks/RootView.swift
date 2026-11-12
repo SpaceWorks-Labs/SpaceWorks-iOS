@@ -401,7 +401,7 @@ private struct MemberScreen: View {
         }.background(Color.swBg).navigationTitle(LocalizedStringKey(tab.rawValue))
         .sheet(item: $accountForm) { form in AccountAccessView(form: form) { accountForm = nil } }
         .sheet(isPresented: $replayIntro) { IntroductionView { replayIntro = false } }
-        .sheet(isPresented: $stepUp) { StaffStepUpView(staff: auth.staff) { stepUp = false } }
+        .sheet(isPresented: $stepUp) { StaffStepUpView(staff: auth.staff) { stepUp = false }.telemetryScreen(.staff_step_up) }
         .confirmationDialog("Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive) { member.invalidate(); cart.invalidate(); drafts.invalidate(); capabilities.invalidate(); navigation.invalidate(); payments.invalidate(); account?.invalidate(); staff?.invalidate(); Task { await auth.signOut() } }
             Button("Cancel", role: .cancel) {}
