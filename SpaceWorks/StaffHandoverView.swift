@@ -123,7 +123,7 @@ struct StaffHandoverView: View {
             if let row = state.mode.request {
                 ForEach(row.items, id: \.id) { item in SWCard { Text(item.product_name).brandFont(.headline); Text("Accepted: \(item.accepted_quantity)"); if item.requires_asset_qr { Text("Scan each individual asset.").foregroundStyle(Color.swMuted) } } }
             } else {
-                ForEach(state.products.filter { $0.is_archived != true && ($0.available_quantity ?? 0) > 0 && $0.tracking_mode?.rawValue != "individual" }, id: \.id) { item in
+                ForEach(state.products.filter { $0.is_archived != true && ($0.available_quantity ?? 0) > 0 && $0.tracking_mode != "individual" }, id: \.id) { item in
                     SWCard {
                         Text(item.name).brandFont(.headline)
                         Stepper("Quantity: \(state.bulkQuantities[item.id] ?? 0)", value: Binding(get: { state.bulkQuantities[item.id] ?? 0 }, set: { state.bulkQuantities[item.id] = $0 }), in: 0...max(0, item.available_quantity ?? 0)).frame(minHeight: 48).accessibilityLabel("Quantity for \(item.name)").accessibilityValue("\(state.bulkQuantities[item.id] ?? 0)")

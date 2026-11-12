@@ -216,6 +216,8 @@ private struct StaffBookingsView: View {
     @Bindable var state: StaffState
     let spaceID: Int; let name: String
     @State private var decision: (row: Components.Schemas.BookingAdmin, approve: Bool)?
+    @State private var rejection: Components.Schemas.BookingAdmin?
+    @State private var reason = ""
     var body: some View {
         ScrollView { LazyVStack(alignment: .leading, spacing: 24) {
             StaffFeedback(load: state.bookingsLoad) { await state.loadBookings(spaceID: spaceID) }
@@ -224,21 +226,31 @@ private struct StaffBookingsView: View {
             ForEach(state.bookings, id: \.id) { row in
                 SWCard {
                     Text(row.name).brandFont(.headline); Text(row.starts_at, format: .dateTime.day().month().hour().minute())
-                    Text(NativeStatusCopy.label(row.status.value1.rawValue)).foregroundStyle(Color.swMuted)
+                    Text(NativeStatusCopy.label(row.status.value1)).foregroundStyle(Color.swMuted)
                     if !row.note.isEmpty { Text(row.note) }
-                    if row.status.value1.rawValue == "pending" {
+                    if row.status.value1 == "pending" {
                         Button("Approve booking") { decision = (row, true) }.buttonStyle(SWPrimary()).disabled(!state.canRequest)
-                        Button("Reject booking", role: .destructive) { decision = (row, false) }.frame(minHeight: 48).disabled(!state.canRequest)
+                        Button("Reject booking", role: .destructive) { reason = ""; rejection = row }.frame(minHeight: 48).disabled(!state.canRequest)
+                            .accessibilityIdentifier("staff-reject-booking-\(row.id)")
                     }
                 }
             }
             if state.bookingsLoad == .ready && state.bookings.isEmpty { Text("Nothing here yet.").foregroundStyle(Color.swMuted) }
             if state.nextBookingPage != nil { Button("Load more bookings") { Task { await state.loadBookings(spaceID: spaceID, more: true) } }.frame(minHeight: 48) }
         }.padding(24).frame(maxWidth: 900).frame(maxWidth: .infinity) }.background(Color.swBg).navigationTitle(name).navigationBarTitleDisplayMode(.inline).task { await state.loadBookings(spaceID: spaceID) }.refreshable { await state.loadBookings(spaceID: spaceID) }
-            .confirmationDialog(decision?.approve == true ? "Approve this booking?" : "Reject this booking?", isPresented: Binding(get: { decision != nil }, set: { if !$0 { decision = nil } }), titleVisibility: .visible) {
-                if let decision { Button(decision.approve ? "Confirm approval" : "Confirm rejection") { Task { await state.decideBooking(decision.row, approve: decision.approve); self.decision = nil } } }
+            .confirmationDialog("Approve this booking?", isPresented: Binding(get: { decision != nil }, set: { if !$0 { decision = nil } }), titleVisibility: .visible) {
+                if let decision { Button("Confirm approval") { Task { await state.decideBooking(decision.row, approve: true); self.decision = nil } } }
                 Button("Cancel", role: .cancel) { decision = nil }
             }
+            // 0.12.0: rejecting a booking needs a reason (shown to the member, at most 1,000 characters).
+            .alert("Reject this booking?", isPresented: Binding(get: { rejection != nil }, set: { if !$0 { rejection = nil } })) {
+                TextField("Reason", text: $reason, axis: .vertical).accessibilityIdentifier("staff-booking-reject-reason")
+                Button("Confirm rejection", role: .destructive) {
+                    if let row = rejection { Task { await state.decideBooking(row, approve: false, reason: reason) } }
+                    rejection = nil
+                }
+                Button("Cancel", role: .cancel) { rejection = nil }
+            } message: { Text("Tell the member why. They will see this reason.") }
     }
 }
 

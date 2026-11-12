@@ -287,12 +287,12 @@ private final class StaffObservationChanges: @unchecked Sendable {
     }
     func testBookingDecisionUsesReturnedServerState() async throws {
         let parent = state(); await parent.loadBookings(spaceID: 901); let row = try XCTUnwrap(parent.bookings.first)
-        await parent.decideBooking(row, approve: true); XCTAssertEqual(parent.bookings.first?.status.value1.rawValue, "confirmed")
+        await parent.decideBooking(row, approve: true); XCTAssertEqual(parent.bookings.first?.status.value1, "confirmed")
     }
     func testBookingConflictReconcilesAuthoritativeStateBeforeAnotherDecision() async throws {
         let parent = state(DemoStaffRepository(scenario: .bookingConflict)); await parent.loadBookings(spaceID: 901)
         await parent.decideBooking(try XCTUnwrap(parent.bookings.first), approve: true)
-        XCTAssertNotNil(parent.error); XCTAssertEqual(parent.bookings.first?.status.value1.rawValue, "confirmed"); XCTAssertFalse(parent.busy)
+        XCTAssertNotNil(parent.error); XCTAssertEqual(parent.bookings.first?.status.value1, "confirmed"); XCTAssertFalse(parent.busy)
     }
     func testAuthorityRefusalPreventsAnotherInFlightResourceFromPublishingPrivateRows() async {
         let gate = StaffReadGate()
@@ -325,9 +325,11 @@ private actor StaffReadGate {
 final class StaffOperationTests: XCTestCase {
     func testRetainedStaffRepositoryCannotFirstReadOrIssueUnderReplacementAccount() async throws {
         let fixture = try await OwnedRepositoryFixture.make(); let probe = fixture.probe
-        let repository = LiveStaffRepository(service: fixture.service, expectedCredentials: fixture.credentials,
+        try await fixture.service.staffRefresh.install(.init(access: "old-staff-access", refresh: "old-staff-refresh"))
+        let repository = LiveStaffRepository(service: fixture.service, expectedCredentials: await fixture.service.staffRefresh.snapshot(),
             makerspaceID: 7, origin: fixture.origin, onUnauthorized: { _ in probe.notified() }, onForbidden: { probe.notified() })
         try await fixture.replaceAccount()
+        try await fixture.service.staffRefresh.install(.init(access: "replacement-staff-access", refresh: "replacement-staff-refresh"))
         let operations: [@Sendable () async throws -> Void] = [
             { _ = try await repository.requests(queue: .pending, page: 1) },
             { _ = try await repository.assignBox(id: 601, body: .init(box_code: "retired-code")) },
@@ -350,9 +352,11 @@ final class StaffOperationTests: XCTestCase {
         }; StubProtocol.lock.unlock()
         let config = DeviceSession.configuration(); config.protocolClasses = [StubProtocol.self]
         let origin = try ServerOrigin("https://spaceworks.example")
-        let service = SpaceWorksService(origin: origin, session: DeviceSession.make(configuration: config), initialTokens: .init(access: "staff-access", refresh: "staff-refresh"))
-        try await service.makerspace.select(7, activeMemberships: [7, 9])
-        return LiveStaffRepository(service: service, expectedCredentials: await service.refresh.snapshot(), makerspaceID: 7, origin: origin)
+        // Staff routes travel on the staff step-up grant fixed to makerspace 7 (0.12.0).
+        let service = SpaceWorksService(origin: origin, session: DeviceSession.make(configuration: config), initialTokens: .init(access: "member-access", refresh: "member-refresh"),
+                                        staffStorage: MemoryStaffGrantStorage(.init(pair: .init(access: "staff-access", refresh: "staff-refresh"), makerspaceID: 7, makerspaceSlug: "demo-workshop")))
+        try await service.makerspace.select(9, activeMemberships: [7, 9])
+        return LiveStaffRepository(service: service, expectedCredentials: await service.staffRefresh.snapshot(), makerspaceID: 7, origin: origin)
     }
     func testAll24GeneratedStaffOperationsRetainScopeExactRoutesAndTypedBodies() async throws {
         var calls = Set<String>()
@@ -385,7 +389,11 @@ final class StaffOperationTests: XCTestCase {
             if path.hasSuffix("events") { return (200, try StaffFixture.page(DebugStaffFixtures.event, extra: ["default_registration_audience": "members"])) }
             if path.hasSuffix("spaces") { return (200, try StaffFixture.page(DebugStaffFixtures.space)) }
             if path.hasSuffix("bookings") { return (200, try StaffFixture.page(DebugStaffFixtures.booking)) }
-            if path.hasSuffix("approve") || path.hasSuffix("reject") { XCTAssertTrue(requestBody(request).isEmpty); return (200, DebugStaffFixtures.booking) }
+            if path.hasSuffix("approve") { XCTAssertTrue(requestBody(request).isEmpty); return (200, DebugStaffFixtures.booking) }
+            if path.hasSuffix("reject") {
+                let body = try JSONSerialization.jsonObject(with: requestBody(request)) as! [String: Any]
+                XCTAssertEqual(body["reason"] as? String, "Closed for maintenance."); return (200, DebugStaffFixtures.booking)
+            }
             XCTFail("Unexpected generated staff route: \(key)"); return (500, "{}")
         }
         for queue in StaffQueue.allCases { _ = try await repo.requests(queue: queue, page: 1) }
@@ -403,13 +411,13 @@ final class StaffOperationTests: XCTestCase {
         _ = try await repo.resolveCheckIn(eventID: 801, body: .init(checkin_token: "opaque-checkin"))
         _ = try await repo.markAttended(registrationID: 1101, body: .init(source: .init(value1: .qr)))
         _ = try await repo.spaces(page: 1); _ = try await repo.bookings(spaceID: 901, page: 1)
-        _ = try await repo.approveBooking(id: 1001); _ = try await repo.rejectBooking(id: 1001)
+        _ = try await repo.approveBooking(id: 1001); _ = try await repo.rejectBooking(id: 1001, reason: "Closed for maintenance.")
         XCTAssertEqual(calls.count, 24)
     }
     func testRetainedStaffRepositoryRefusesScopeDriftBeforeSendingAnIDOnlyMutation() async throws {
         var calls = 0
         let repo = try await repository { _ in calls += 1; return (200, DebugStaffFixtures.booking) }
-        try await repo.service.makerspace.select(9, activeMemberships: [7, 9])
+        try await repo.service.staffRefresh.install(.init(access: "other-staff-access", refresh: "other-staff-refresh"))
         do { _ = try await repo.approveBooking(id: 1001); XCTFail("Old scope sent a mutation") } catch { XCTAssertEqual(calls, 0) }
     }
     func testNextPageCannotChangeOriginResourceOrRegress() async throws {

@@ -226,6 +226,6 @@ actor DemoStaffRepository: StaffRepository {
         if scenario == .bookingConflict { throw APIError(status: 409, code: "changed", detail: String(localized: "This booking changed. Refresh its status.")) }
         return try decode(DebugStaffFixtures.booking, changes: ["status": bookingStatus])
     }
-    func rejectBooking(id: Int) throws -> Components.Schemas.BookingAdmin { try checked(); bookingStatus = "rejected"; return try decode(DebugStaffFixtures.booking, changes: ["status": bookingStatus]) }
+    func rejectBooking(id: Int, reason: String) throws -> Components.Schemas.BookingAdmin { try checked(); bookingStatus = "rejected"; return try decode(DebugStaffFixtures.booking, changes: ["status": bookingStatus]) }
 }
 #endif

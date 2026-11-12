@@ -27,28 +27,30 @@ protocol StaffRepository: Sendable {
     func spaces(page: Int) async throws -> Components.Schemas.BookableSpaceListResponse
     func bookings(spaceID: Int, page: Int) async throws -> Components.Schemas.BookingListResponse
     func approveBooking(id: Int) async throws -> Components.Schemas.BookingAdmin
-    func rejectBooking(id: Int) async throws -> Components.Schemas.BookingAdmin
+    func rejectBooking(id: Int, reason: String) async throws -> Components.Schemas.BookingAdmin
 }
 extension StaffRepository { var isDemo: Bool { false } }
 
 /// Immutable scope for every read and mutation, including ID-only API routes.
-/// Construct only after native_staff authority and the selected membership's actions are verified.
+/// Construct only after the staff step-up grant's `/auth/me` lists this makerspace and its actions.
+/// `expectedCredentials` is a snapshot of the STAFF grant; the member grant is never used here.
 struct LiveStaffRepository: StaffRepository {
     let service: SpaceWorksService
     let expectedCredentials: CredentialSnapshot?
     let makerspaceID: Int
     let origin: ServerOrigin
+    /// The staff grant was refused (401): drop it; the member session stays.
     var onUnauthorized: @Sendable (String) async -> Void = { _ in }
     var onForbidden: @Sendable () async -> Void = {}
 
     private func checked<T: Sendable>(_ work: @Sendable () async throws -> T) async throws -> T {
-        guard let expectedCredentials, await service.refresh.isSameInstallation(expectedCredentials) else { throw CancellationError() }
+        guard let expectedCredentials, await service.staffRefresh.isSameInstallation(expectedCredentials) else { throw CancellationError() }
         guard makerspaceID > 0 else { throw CancellationError() }
-        do { return try await service.withMakerspace(makerspaceID, expectedCredentials: expectedCredentials, operation: work) }
+        do { return try await service.withStaffGrant(expectedCredentials: expectedCredentials, makerspaceID: makerspaceID, operation: work) }
         catch {
             if Task.isCancelled || APIError.isCancellation(error) { throw error }
-            guard await service.refresh.isSameInstallation(expectedCredentials) else { throw CancellationError() }
-            let empty = await service.refresh.current() == nil
+            guard await service.staffRefresh.isSameInstallation(expectedCredentials) else { throw CancellationError() }
+            let empty = await service.staffRefresh.current() == nil
             if APIError.status(error) == 401 || empty { await onUnauthorized(APIError.display(error)) }
             else if APIError.status(error) == 403 { await onForbidden() }
             throw error
@@ -138,5 +140,5 @@ struct LiveStaffRepository: StaffRepository {
         try validate(result.next, path: "/api/v1/admin/spaces/\(spaceID)/bookings/", after: page); return result
     }
     func approveBooking(id: Int) async throws -> Components.Schemas.BookingAdmin { try await checked { try await service.staffApproveBooking(id: id) } }
-    func rejectBooking(id: Int) async throws -> Components.Schemas.BookingAdmin { try await checked { try await service.staffRejectBooking(id: id) } }
+    func rejectBooking(id: Int, reason: String) async throws -> Components.Schemas.BookingAdmin { try await checked { try await service.staffRejectBooking(id: id, reason: reason) } }
 }

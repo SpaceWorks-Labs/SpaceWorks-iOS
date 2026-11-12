@@ -134,7 +134,7 @@ final class StaffHandoverState {
     var duplicateProducts: Set<Int> {
         Set(scans.values.compactMap { result -> Int? in
             let product = StaffMetadata.positiveID(result.target.additionalProperties["product_id"]?.value)
-                ?? (result.qr.target_type.rawValue == "product" ? result.qr.target_id : nil)
+                ?? (result.qr.target_type == "product" ? result.qr.target_id : nil)
             guard let product, (bulkQuantities[product] ?? 0) > 0 else { return nil }; return product
         })
     }
@@ -150,7 +150,7 @@ final class StaffHandoverState {
         }
         let validBulk = bulkQuantities.allSatisfy { id, quantity in
             guard let product = products.first(where: { $0.id == id }) else { return quantity == 0 }
-            return quantity >= 0 && quantity <= (product.available_quantity ?? 0) && product.tracking_mode?.rawValue != "individual" && product.is_archived != true
+            return quantity >= 0 && quantity <= (product.available_quantity ?? 0) && product.tracking_mode != "individual" && product.is_archived != true
         }
         return validBulk && duplicateProducts.isEmpty && (!selectedItems.isEmpty || !scans.isEmpty)
     }
@@ -188,11 +188,11 @@ final class StaffHandoverState {
         busy = true; error = nil
         do {
             let result = try await parent.repository.resolveQR(body: .init(payload: value)); guard active else { return }
-            guard result.qr.makerspace == parent.makerspaceID, result.qr.status.value1.rawValue == "active" else { throw validation("Scan an active code from this makerspace.") }
+            guard result.qr.makerspace == parent.makerspaceID, result.qr.status.value1 == "active" else { throw validation("Scan an active code from this makerspace.") }
             let canonical = result.qr.payload
             guard !canonical.isEmpty, canonical.utf8.count <= 64,
                   !canonical.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { throw validation("This QR code cannot be used for a handover.") }
-            let type = result.qr.target_type.rawValue
+            let type = result.qr.target_type
             if box {
                 if let loan = mode.loan {
                     guard type == loan.target_type else { throw validation("Scan the equipment code for this loan.") }
@@ -220,7 +220,7 @@ final class StaffHandoverState {
         if !needsKits { kits = []; kitsReady = true; return }
         busy = true; error = nil; kitsReady = false
         do {
-            guard let phase = Components.Schemas.PhaseEnum(rawValue: mode.isReturn ? "return" : "issue") else { throw validation("Checklist phase unavailable.") }
+            guard let phase = Components.Schemas.Phase740Enum(rawValue: mode.isReturn ? "return" : "issue") else { throw validation("Checklist phase unavailable.") }
             let result = try await parent.repository.kitPreview(body: .init(
                 phase: .init(value1: phase), request_id: mode.request?.id,
                 loan_id: mode.loan?.id, box_code: boxCode.isEmpty ? nil : boxCode,
@@ -241,7 +241,7 @@ final class StaffHandoverState {
         guard canRequest, let photo else { return }; busy = true; evidenceID = nil; error = nil
         let current = generation
         do {
-            guard let type = Components.Schemas.EvidenceUrlRequestEvidenceTypeEnum(rawValue: mode.isReturn ? "return" : "issue") else { throw validation("Photo type unavailable.") }
+            guard let type = Components.Schemas.EvidenceType5ffEnum(rawValue: mode.isReturn ? "return" : "issue") else { throw validation("Photo type unavailable.") }
             let grant = try await parent.repository.evidence(body: .init(evidence_type: type, content_type: "image/jpeg", size_bytes: photo.count))
             guard active, current == generation else { return }
             if !isDemo { try await upload(grant, photo) }

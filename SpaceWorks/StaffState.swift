@@ -128,14 +128,19 @@ final class StaffState {
             bookings = StaffPaging.unique((more ? bookings : []) + result.results, id: { $0.id }); bookingsLoad = .ready
         } catch { guard active, generation == bookingsGeneration else { return }; refuse(error); bookingsLoad = .failed(APIError.display(error)) }
     }
-    func decideBooking(_ row: Components.Schemas.BookingAdmin, approve: Bool) async {
-        guard can("manage_bookings"), canRequest, row.status.value1.rawValue == "pending", selectedSpace == row.space_id else { return }
+    /// Rejecting needs a reason the member sees (0.12.0 `BookingReject`, at most 1,000 characters).
+    func decideBooking(_ row: Components.Schemas.BookingAdmin, approve: Bool, reason: String = "") async {
+        let reason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard can("manage_bookings"), canRequest, row.status.value1 == "pending", selectedSpace == row.space_id else { return }
+        if !approve, reason.isEmpty || reason.count > 1000 {
+            error = String(localized: "Add a reason of up to 1,000 characters before rejecting this booking."); return
+        }
         busy = true; error = nil; notice = nil
         let scopeGeneration = bookingsGeneration
         do {
             let updated: Components.Schemas.BookingAdmin
             if approve { updated = try await repository.approveBooking(id: row.id) }
-            else { updated = try await repository.rejectBooking(id: row.id) }
+            else { updated = try await repository.rejectBooking(id: row.id, reason: reason) }
             busy = false
             guard active, scopeGeneration == bookingsGeneration, selectedSpace == row.space_id else { return }
             bookings = bookings.map { $0.id == updated.id ? updated : $0 }
